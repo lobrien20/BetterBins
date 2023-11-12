@@ -1,0 +1,3 @@
+Completeness:93.33
+ Contamination:0
+Calculated using 255 markers using eukaryota_odb10 database

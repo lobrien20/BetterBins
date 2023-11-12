@@ -1,0 +1,7 @@
+bin_name	sub_directory	bin_type	completeness	contamination	number_of_contigs
+Semibin_sample_1_missing_one_contig.fa	test_bins	prokaryote	100	8.78	202
+Cow_36641_day_56_trimmed.066.fa	test_bins	prokaryote	52.9	13.28	1284
+Semibin_sample_1.fa	test_bins	prokaryote	100	8.78	203
+Semibin_sample_1_multiple_contigs_missing.fa	test_bins	prokaryote	100	8.84	192
+Saccharomyces_cerevisiae_eukaryote_test_sample.fa	test_bins	eukaryote	92.94	0	17
+Cow_36641_day_56_trimmed.066_missing_one_contig.fa	test_bins	prokaryote	52.9	13.28	1283

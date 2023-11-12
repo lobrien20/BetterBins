@@ -1,0 +1,10 @@
+target
+mb_downloads
+tests/test_data/
+tests/new_tests/databases_for_testing/
+tests/new_tests/eukaryotic_contig_gatherer_test/compleasm_sacch_test_result_dir/compleasm_results/
+tests/new_tests/full_scale_test/test_1/results/contig_outputs/
+tests/new_tests/initialise_bins_and_contigs_test/compleasm_results/eukaryota_odb10/
+eukaryota_odb10
+clustering.py
+
