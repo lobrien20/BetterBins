@@ -121,11 +121,8 @@ fn main() {
 #[command(about = "BetterBins bin analyser", long_about = None)]
 struct Cli {
     
-    #[command(subcommand)]
-    command: Commands,
 
     #[arg(short, long)]
-
     contigs_file_path: PathBuf,
 
     #[arg(short, long, default_value = "1")]
