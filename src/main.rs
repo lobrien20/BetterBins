@@ -124,6 +124,8 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
 
+    #[arg(short, long)]
+
     contigs_file_path: PathBuf,
 
     #[arg(short, long, default_value = "1")]
@@ -138,6 +140,7 @@ struct Cli {
     #[arg(short, long)]
     results_directory: PathBuf,
 
+    #[arg(long)]
     hash_directory: Option<PathBuf>,
 
     #[arg(short, long, default_value = "999.9")]

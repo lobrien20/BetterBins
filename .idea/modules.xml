@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/HeuristicMagRefiner.iml" filepath="$PROJECT_DIR$/.idea/HeuristicMagRefiner.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/BetterBins.iml" filepath="$PROJECT_DIR$/.idea/BetterBins.iml" />
     </modules>
   </component>
 </project>

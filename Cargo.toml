@@ -1,5 +1,5 @@
 [package]
-name = "HeuristicMagRefiner"
+name = "BetterBins"
 version = "0.1.0"
 edition = "2021"
 
