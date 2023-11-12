@@ -340,7 +340,7 @@ mod tests {
         best_bin_struct.create_best_bin_dir_and_info_from_best_hashes(hash_dir, classic_best_bin_test_res_dir, true);
         let files_in_best_bin_dir: Vec<DirEntry> = classic_best_bin_test_res_dir.read_dir().unwrap().filter_map(|x| x.ok()).collect();
         
-        assert_eq!(files_in_best_bin_dir.len(), 3);
+        assert_eq!(files_in_best_bin_dir.len(), 4);
         let best_bin_file_path = classic_best_bin_test_res_dir.join("best_bins_information.tsv");
         let best_bin_info_results = fs::read_to_string(best_bin_file_path).expect("Unable to read best bin file");
         assert_eq!(best_bin_info_results.lines().collect::<Vec<&str>>().len(), 4);
