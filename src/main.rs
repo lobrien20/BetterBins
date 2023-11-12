@@ -101,7 +101,8 @@ fn main() {
     }
     check_and_remove_bads_in_hash_directory(&hash_directory);
 
-    let initial_bin_info_dir_path = &args.results_directory.join("initial_bins_information_dir/");
+    let initial_bin_info_dir_path = &args.results_directory.join("initial_bin_results_information_dir/");
+    fs::create_dir(&initial_bin_info_dir_path);
     let bin_info_storage = BinInfoStorage::initialise_bin_info_storer();
     
     let (bin_generator, bins) = initialise_tool_through_getting_original_bins_and_contigs(&args.contigs_file_path, initial_bin_info_dir_path, args.checkm2_db_path, args.threads, &args.path_to_bin_dir, 
