@@ -82,7 +82,7 @@ fn main() {
         BinTypePredictionApproach::assume_eukaryote => bin_type_predictor = Box::new(AssumeBinType {assumed_bin_type: BinType::eukaryote}),
         BinTypePredictionApproach::assume_prokaryote => bin_type_predictor = Box::new(AssumeBinType {assumed_bin_type: BinType::prokaryote}),
         BinTypePredictionApproach::eukrep_majority => bin_type_predictor = Box::new(EukRepBasedPredictor{}),
-        BinTypePredictionApproach::minimum_eukaryote_markers => bin_type_predictor = Box::new(MinimumEukMarkerGenes {minimum_marker_gene_count: args.num_of_compleasm_db_markers})
+        BinTypePredictionApproach::minimum_eukaryote_markers => bin_type_predictor = Box::new(MinimumEukMarkerGenes {minimum_marker_gene_count: (args.num_of_compleasm_db_markers / 2)})
     
     };
 

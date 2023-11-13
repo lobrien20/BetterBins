@@ -8,3 +8,8 @@ tests/new_tests/initialise_bins_and_contigs_test/compleasm_results/eukaryota_odb
 eukaryota_odb10
 clustering.py
 
+
+
+# Added by cargo
+
+/target

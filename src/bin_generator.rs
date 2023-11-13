@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::{Arc, self}, fs::{self, File}, thread, time::Duration, collections::HashSet};
+use std::{path::PathBuf, sync::{Arc, self}, fs::{self, File}, thread, time::Duration, collections::HashSet, any::Any};
 
 use log::info;
 
@@ -124,9 +124,10 @@ impl BinGenerator for BinGen {
 }
 
 
-pub trait BinTypePrediction: Send + Sync {
+pub trait BinTypePrediction: Send + Sync + Any {
 
     fn predict_type_of_bin(&self, contigs: &[Arc<Contig>]) -> Option<BinType>;
+    fn required_contig_information(&self) -> Vec<String>;
 
 }
 
@@ -170,6 +171,9 @@ impl BinTypePrediction for EukRepBasedPredictor {
         
         }
     }
+    fn required_contig_information(&self) -> Vec<String> {
+        vec!["contig_type_checking".to_string(), "prokaryote".to_string(), "eukaryote".to_string()]
+    }
 }
 
 
@@ -203,6 +207,10 @@ impl BinTypePrediction for MinimumEukMarkerGenes {
         }
 
     }
+    fn required_contig_information(&self) -> Vec<String> {
+        vec!["prokaryote".to_string(), "eukaryote".to_string()]
+    }
+
 }
 
 pub struct AssumeBinType {
@@ -214,6 +222,17 @@ pub struct AssumeBinType {
 impl BinTypePrediction for AssumeBinType {
     fn predict_type_of_bin(&self, contigs: &[Arc<Contig>]) -> Option<BinType> {
         Some(self.assumed_bin_type.clone())
+    }
+    fn required_contig_information(&self) -> Vec<String> {
+        
+        if self.assumed_bin_type == BinType::eukaryote {
+            return vec!["eukaryote".to_string()]
+        } 
+        else {
+            
+            return vec!["prokaryote".to_string()]
+        
+        }
     }
 }
 

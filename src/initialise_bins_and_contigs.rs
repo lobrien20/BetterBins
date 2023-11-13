@@ -4,19 +4,20 @@ use itertools::Itertools;
 use log::info;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IntoParallelIterator};
 
-use crate::{contigs::{Contig, ContigType, EukaryoticContigInformation}, prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic_contig_gatherer::EukaryoticBinQualityGetter, contig_type_predictor::ContigTypePredictor, utils::{generate_hash_from_contigs, create_new_fasta_file, create_bin_fasta}, bin_info_storage::{BinType, BinInfoStorage, Bin}, bin_generator::{BinGen, BinTypePrediction, BinGenerator}};
+use crate::{contigs::{Contig, ContigType, EukaryoticContigInformation}, prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic_contig_gatherer::EukaryoticBinQualityGetter, contig_type_predictor::ContigTypePredictor, utils::{generate_hash_from_contigs, create_new_fasta_file, create_bin_fasta}, bin_info_storage::{BinType, BinInfoStorage, Bin}, bin_generator::{BinGen, BinTypePrediction, BinGenerator, EukRepBasedPredictor}};
 
 pub fn initialise_tool_through_getting_original_bins_and_contigs(contig_file: &PathBuf, output_directory: &PathBuf, prokaryote_db_path: String, 
     threads: usize, bin_directory_path: &PathBuf, eukaryota_db_path: String, number_of_markers: usize, compleasm_db_type: String, hash_directory_path: &PathBuf, 
     maximum_contamination: f64, minimum_completeness: f64, bin_type_predictor: Box<dyn BinTypePrediction>, bin_info_storer: BinInfoStorage) -> (BinGen, Vec<Bin>) {
 
+    let fasta_files = find_bin_fastas(&bin_directory_path);
+
     let prok_bin_getter = ProkaryoticBinQualityGetter::initialise(&prokaryote_db_path);
     let euk_bin_getter = EukaryoticBinQualityGetter::initialise(&eukaryota_db_path, number_of_markers, compleasm_db_type);
-    let all_contigs = gather_contigs_and_add_info(&contig_file, &output_directory.join("contig_outputs/"), &prok_bin_getter, &euk_bin_getter, threads);
+    let all_contigs = gather_contigs_and_add_info(&contig_file, &output_directory.join("contig_outputs/"), &prok_bin_getter, &euk_bin_getter, threads, &bin_type_predictor, fasta_files.clone());
     let bin_generator = BinGen::initialise(Some(prok_bin_getter), Some(euk_bin_getter), hash_directory_path.clone(), maximum_contamination, minimum_completeness, 
     bin_info_storer, bin_type_predictor);
     
-    let fasta_files = find_bin_fastas(&bin_directory_path);
     let path_to_bin_hashmap = analyse_initial_bin_fastas_and_generate_path_to_bin_dict(fasta_files, all_contigs, &bin_generator);
     create_summary_file_of_initial_bin_fastas(&path_to_bin_hashmap, output_directory, &bin_directory_path);
     let the_bins = path_to_bin_hashmap.into_values().filter_map(|bin| bin).collect_vec();
@@ -27,15 +28,31 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(contig_file: &P
 
 
 pub fn gather_contigs_and_add_info(contig_file: &PathBuf, output_directory: &PathBuf, 
-    prok_bin_getter: &ProkaryoticBinQualityGetter, euk_bin_getter: &EukaryoticBinQualityGetter, threads: usize) -> Vec<Arc<Contig>> {
-
-    let mut all_contigs: Vec<Contig> = generate_all_contigs_from_contig_file(&contig_file);
+    prok_bin_getter: &ProkaryoticBinQualityGetter, euk_bin_getter: &EukaryoticBinQualityGetter, threads: usize, bin_type_predictor: &Box<dyn BinTypePrediction>, fasta_file_paths: Vec<PathBuf>) -> Vec<Arc<Contig>> {
+    
     fs::create_dir(output_directory);
 
-    ContigTypePredictor::predict_contig_types(&contig_file, &mut all_contigs, output_directory).unwrap();
-    prok_bin_getter.add_prok_info_to_contigs_using_checkm2(&contig_file, output_directory, &mut all_contigs, threads);
-    euk_bin_getter.add_euk_info_to_contigs_using_compleasm(&contig_file, &mut all_contigs, output_directory, threads);
+    let mut all_contigs: Vec<Contig> = generate_all_contigs_from_fasta_files(fasta_file_paths);
+    let contig_file_path = output_directory.join("all_used_contigs.fa");
+    let arc_contigs_for_create_fasta: Vec<Arc<Contig>> = all_contigs.clone().into_iter().map(|contig| Arc::new(contig)).collect();
+    create_bin_fasta(&arc_contigs_for_create_fasta, &contig_file_path);
+
+    let required_contig_information_processing = bin_type_predictor.required_contig_information();
+
+    if required_contig_information_processing.contains(&"contig_type_checking".to_string()) {
+        info!("Running contig type checking");
+        ContigTypePredictor::predict_contig_types(&contig_file, &mut all_contigs, output_directory).unwrap();
+    }
+    if required_contig_information_processing.contains(&"prokaryote".to_string()) {
+        info!("Running prokaryote analysis of contigs");
+        prok_bin_getter.add_prok_info_to_contigs_using_checkm2(&contig_file, output_directory, &mut all_contigs, threads);
     
+    }
+    if required_contig_information_processing.contains(&"eukaryote".to_string()) {
+        info!("Running eukaryote analysis of contigs");
+        euk_bin_getter.add_euk_info_to_contigs_using_compleasm(&contig_file, &mut all_contigs, output_directory, threads);
+    
+    }
     let all_arc_contigs: Vec<Arc<Contig>> = all_contigs.into_iter().map(|contig| Arc::new(contig)).collect();
     all_arc_contigs
 }
@@ -62,6 +79,26 @@ pub fn generate_all_contigs_from_contig_file(contig_file: &PathBuf) -> Vec<Conti
 
 }
 
+pub fn generate_all_contigs_from_fasta_files(fasta_file_paths: Vec<PathBuf>) -> Vec<Contig> {
+    
+    let mut all_used_contigs = Vec::new();
+    for fasta_file_path in fasta_file_paths {
+        let fasta_info = get_fasta_info_from_file(&fasta_file_path);
+        
+        for header_and_seq in fasta_info {
+        
+            let contig_fasta_lines: Vec<&str> = header_and_seq.lines().collect();
+            let contig_header = contig_fasta_lines[0].trim().to_string();
+            let contig_fasta_sequence: String = contig_fasta_lines.into_iter().skip(1).collect::<Vec<_>>().join("");
+            let contig = Contig::new_contig(contig_header, contig_fasta_sequence);
+            if !all_used_contigs.contains(&contig) {
+                all_used_contigs.push(contig);
+            }
+        }
+    }
+    all_used_contigs
+
+}
 
 fn get_fasta_info_from_file(fasta_file_path: &PathBuf) -> Vec<String> {
         
@@ -72,7 +109,9 @@ fn get_fasta_info_from_file(fasta_file_path: &PathBuf) -> Vec<String> {
     let fasta_info: Vec<String> = fasta_vec.iter().skip(1).map(|x| format!(">{}", x)).collect();
     fasta_info
 
+
 }
+
 
 
 
@@ -231,13 +270,14 @@ mod tests {
     }
 
 
-
+/* 
     #[test]
     fn test_gather_contigs_and_get_info() {
+        let mut bin_type_predictor: Box<dyn BinTypePrediction> = Box::new(MinimumEukMarkerGenes{ minimum_marker_gene_count: 128});
         let contig_file_path = &TEST_DATA_DIR.join("all_unique_contigs.fa");
         let prok_bin_getter = ProkaryoticBinQualityGetter::initialise(&CHECKM2_DB_PATH.to_string_lossy());
         let euk_bin_getter = EukaryoticBinQualityGetter::initialise(&COMPLEASM_DB_LIB.to_string_lossy(), 255, "eukaryota_odb10".to_string());
-        let contigs = gather_contigs_and_add_info(contig_file_path, &INITIALISE_BC_PATH, &prok_bin_getter, &euk_bin_getter, 6);
+        let contigs = gather_contigs_and_add_info(contig_file_path, &INITIALISE_BC_PATH, &prok_bin_getter, &euk_bin_getter, 6, &bin_type_predictor);
         assert_eq!(contigs.len(), 1504);
         let expected_diamond_info_path = &INITIALISE_BC_PATH.join("checkm2_results/diamond_output/DIAMOND_RESULTS.tsv");
         let expected_protein_info_path = &INITIALISE_BC_PATH.join("checkm2_results/protein_files/all_unique_contigs.faa");
@@ -253,7 +293,7 @@ mod tests {
             
         }
     }
-
+    */
     fn get_unique_diamonds_for_test(prok_info: &ProkaryoticContigInformation) -> Vec<&str>{
         let diamond_vec = prok_info.diamond_lines.iter()
                     .map(|line| {

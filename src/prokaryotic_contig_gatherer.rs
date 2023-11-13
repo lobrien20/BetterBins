@@ -40,7 +40,7 @@ impl ProkaryoticBinQualityGetter {
         fs::create_dir(&checkm2_contig_result_directory).unwrap();
         let mut checkm2_args = vec!["predict", "-i", contig_path_str, "-x", "fa", "-o", &checkm2_contig_result_directory, "--database_path", checkm2_db_path_str, "-t", &thread_str, "--force", "--quiet"];
 
-
+        info!("Running checkm with {} threads", &thread_str);
         let status = Command::new("checkm2")
             .args(checkm2_args)
             .status()
