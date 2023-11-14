@@ -5,6 +5,7 @@ use bin_sets::BinSet;
 use clap::{Parser, ValueEnum, Subcommand};
 use classic_best_bin::run_classic_best_bin;
 use contigs::Contig;
+use graphing::run_graph_clustering;
 use initialise_bins_and_contigs::initialise_tool_through_getting_original_bins_and_contigs;
 use itertools::Itertools;
 use log::{debug, error, info, trace, warn};
@@ -21,6 +22,7 @@ pub mod bin_info_storage;
 pub mod bin_sets;
 pub mod bin_generator;
 pub mod bin_scoring;
+pub mod graphing;
 /* 
 fn main() {
  // Make sure to add functions ensuring checkm2 database and compleasm database!
@@ -110,9 +112,19 @@ fn main() {
         args.min_completeness, bin_type_predictor, bin_info_storage);
 
     let bin_scorer = &bin_scoring::BinScorer { contamination_weight: args.contamination_weight, completion_weight: args.completion_weight };
-    let best_bins = run_classic_best_bin(bins.into_iter().map(|bin| bin.bin_contigs).collect_vec(), Box::new(bin_generator), bin_scorer);
+    let arc_bin_gen = Arc::new(bin_generator);
+    let mut bin_arc_contigs = None;
+    if args.run_clustering {
+       let result = run_graph_clustering(bins, Arc::clone(&arc_bin_gen), 0.5);
+       bin_arc_contigs = Some(result.into_iter().map(|tuple| tuple.0).collect_vec());
+    } else {
+        bin_arc_contigs = Some(bins.into_iter().map(|bin| bin.bin_contigs).collect_vec());
+    }
+    let bin_generator = Arc::try_unwrap(arc_bin_gen).ok().unwrap();
+    let best_bins = run_classic_best_bin(bin_arc_contigs.unwrap(), Box::new(bin_generator), bin_scorer);
     let best_bin_set = BinSet::make_bin_set_from_bins_vec(best_bins);
     let best_bins_directory = &args.results_directory.join("best_bins_directory/");
+
     best_bin_set.create_best_bin_dir_and_info_from_best_hashes(&hash_directory, best_bins_directory, true);
 
 }

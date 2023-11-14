@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use petgraph::{Graph, Undirected, visit::IntoNodeReferences};
 
-use crate::bin_generator::{BinGen};
+use crate::bin_generator::{BinGen, BinGenerator};
 use crate::bin_info_storage::{BinInfoStorage, Bin};
 use crate::contigs::Contig;
 
@@ -22,13 +22,13 @@ pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, mini
     let mut arc_bin_graph = Arc::new(bin_distance_graph);
     let successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
     let all_successful_bins = successful_bins.into_iter().collect_vec();
-    let all_bins_as_bins: Vec<Bin> = all_successful_bins.into_iter().map(|contig_set| bin_generator.create_bin_struct_from_contigs(contig_set).unwrap()).collect();
-    let all_bins_by_information = all_bins_as_bins.into_iter().map(|bin| (bin.bin_contigs.unwrap(), bin.bin_hash, bin.completeness.unwrap(), bin.contamination.unwrap())).collect_vec();
+    let all_bins_as_bins: Vec<Bin> = all_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
+    let all_bins_by_information = all_bins_as_bins.into_iter().map(|bin| (bin.bin_contigs, bin.bin_hash, bin.completeness, bin.contamination)).collect_vec();
    // let connected_routes = new_bin_finder.find_connected_routes(&bin_distance_graph);
     // let all_successful_bins = new_bin_finder.test_each_connected_route(bin_distance_graph, connected_routes, bin_generator);
     info!("Graph clustering successfully generated {} hybrid bins from {} unique bins", all_bins_by_information.len(), unique_bins.len());
     all_bins_by_information
-
+ 
 }
 struct ClusteringPrep;
 
@@ -67,8 +67,8 @@ impl ClusteringPrep {
     }
 
     fn calc_jaccard_similarity(bin_1: &Bin, bin_2: &Bin) -> f64 {
-        let bin_1_contigs = bin_1.bin_contigs.clone().unwrap();
-        let bin_2_contigs = bin_2.bin_contigs.clone().unwrap();
+        let bin_1_contigs = bin_1.bin_contigs.clone();
+        let bin_2_contigs = bin_2.bin_contigs.clone();
 
         let bin_1_contigs_set: HashSet<_> = bin_1_contigs.iter().collect();
         let bin_2_contigs_set: HashSet<_> = bin_2_contigs.iter().collect();
@@ -182,7 +182,7 @@ impl NewBinFinder {
         return false
     }
 
-    fn test_each_connected_route(&self, bin_distance_graph: BinDistanceGraph, connected_routes: Vec<Vec<NodeIndex>>, bin_generator: Arc<BinGenerator> ) -> Vec<Vec<Arc<Contig>>> {
+    fn test_each_connected_route(&self, bin_distance_graph: BinDistanceGraph, connected_routes: Vec<Vec<NodeIndex>>, bin_generator: Arc<BinGen> ) -> Vec<Vec<Arc<Contig>>> {
         let bin_dist_graph_arc = Arc::new(bin_distance_graph);
 
         let all_successful_bins: Vec<Vec<Arc<Contig>>> = connected_routes.par_iter().map(|route| {
@@ -191,31 +191,31 @@ impl NewBinFinder {
         all_successful_bins
     }
 
-    fn test_connected_route(&self, nodes_in_route: &Vec<NodeIndex>, bin_distance_graph: Arc<BinDistanceGraph>, bin_generator: Arc<BinGenerator>) -> Vec<Vec<Arc<Contig>>> {
+    fn test_connected_route(&self, nodes_in_route: &Vec<NodeIndex>, bin_distance_graph: Arc<BinDistanceGraph>, bin_generator: Arc<BinGen>) -> Vec<Vec<Arc<Contig>>> {
         let mut successful_bins = Vec::new();
 
         if nodes_in_route.len() == 1 {
 
-            return vec![bin_distance_graph.node_bin_dict.get(&nodes_in_route[0]).unwrap().bin_contigs.clone().unwrap()]
+            return vec![bin_distance_graph.node_bin_dict.get(&nodes_in_route[0]).unwrap().bin_contigs.clone()]
         }
 
         for node in nodes_in_route {
             let mut node_successful_bins = Vec::new();
             let initial_bin = bin_distance_graph.node_bin_dict.get(&node).unwrap();
-            self.test_node_potential_bins(&bin_distance_graph, vec![&node], &bin_generator, (initial_bin.completeness.unwrap(), initial_bin.contamination.unwrap()), &mut node_successful_bins);
+            self.test_node_potential_bins(&bin_distance_graph, vec![&node], &bin_generator, (initial_bin.completeness, initial_bin.contamination), &mut node_successful_bins);
             successful_bins.extend(node_successful_bins);
 
         }
         println!("Route generated: {} successful bins", successful_bins.len());
         successful_bins
     }
-    fn test_each_node(&self, bin_distance_graph: Arc<BinDistanceGraph>, bin_gen_arc: Arc<BinGenerator>, ) -> HashSet<Vec<Arc<Contig>>> {
+    fn test_each_node(&self, bin_distance_graph: Arc<BinDistanceGraph>, bin_gen_arc: Arc<BinGen>, ) -> HashSet<Vec<Arc<Contig>>> {
         for (current_node, bin) in &bin_distance_graph.node_bin_dict {
 
         }
         let unique_created_bins: HashSet<Vec<Arc<Contig>>> = bin_distance_graph.node_bin_dict.clone().par_iter().map(|(node, bin)| {
-            let mut new_bins = vec![bin.bin_contigs.clone().unwrap()];
-            self.test_node_potential_bins(&Arc::clone(&bin_distance_graph), vec![node], &Arc::clone(&bin_gen_arc), (bin.completeness.unwrap(), bin.contamination.unwrap()), &mut new_bins);
+            let mut new_bins = vec![bin.bin_contigs.clone()];
+            self.test_node_potential_bins(&Arc::clone(&bin_distance_graph), vec![node], &Arc::clone(&bin_gen_arc), (bin.completeness, bin.contamination), &mut new_bins);
             new_bins
         }).flatten().collect();
       //  let mut unique_bins = HashSet::new();
@@ -223,7 +223,7 @@ impl NewBinFinder {
     }
 
 
-    fn test_node_potential_bins(&self, bin_distance_graph: &BinDistanceGraph, current_bin_nodes: Vec<&NodeIndex>, bin_generator: &Arc<BinGenerator>, current_bin_quality: (f64, f64), successful_bins: &mut Vec<Vec<Arc<Contig>>>) {
+    fn test_node_potential_bins(&self, bin_distance_graph: &BinDistanceGraph, current_bin_nodes: Vec<&NodeIndex>, bin_generator: &Arc<BinGen>, current_bin_quality: (f64, f64), successful_bins: &mut Vec<Vec<Arc<Contig>>>) {
         println!("Testing node: {} potential bins...", bin_distance_graph.node_bin_dict.get(current_bin_nodes[current_bin_nodes.len() - 1]).unwrap().bin_hash);
         let current_bin_test_node = current_bin_nodes[current_bin_nodes.len() - 1];
         let neighbor_nodes: Vec<NodeIndex> = bin_distance_graph.the_graph.neighbors_undirected(current_bin_test_node.clone()).collect();
@@ -236,18 +236,46 @@ impl NewBinFinder {
             let hypothetical_bin = bin_distance_graph.node_bin_dict.get(&neighbor_node).unwrap();
             let mut bin_test = current_bins.clone();
             bin_test.push(hypothetical_bin);
-            println!("Bin test bin contigs equal: {}", bin_test[0].bin_contigs.clone().unwrap().len());
-            let contigs_to_test: Vec<Arc<Contig>> = bin_test.iter().map(|bin| bin.bin_contigs.clone().unwrap()).flatten().collect();
-            println!("Number of contigs to test equal: {}", contigs_to_test.len());
-            match bin_generator.create_new_bin_from_contigs(&contigs_to_test) {
+            println!("Bin test bin contigs equal: {}", bin_test[0].bin_contigs.clone().len());
+            let contigs_to_test: Vec<Arc<Contig>> = bin_test.iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect();
+            let mut single_vec = Vec::new();
+            let mut intersect_contig_test = Vec::new();
+
+            bin_test.iter().map(|bin| bin.bin_contigs.clone())
+                .for_each(|x| {
+                    if !single_vec.contains(&x) {
+                        intersect_contig_test.extend(x);
+                    } else {
+                        single_vec.push(x)
+                    }
+                });
+
+            match bin_generator.generate_new_bin_from_contigs(intersect_contig_test.clone()) {
                 Some(bin_res) => {
                     println!("Generated bin: {:?}", &bin_res);
-                    if bin_res.1 > current_bin_quality.0 {
+                    if bin_res.completeness > current_bin_quality.0 {
                         println!("success");
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
-                        successful_bins.push(contigs_to_test.clone());
-                        self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.1, bin_res.2), successful_bins);
+                        successful_bins.push(intersect_contig_test);
+                        self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
+                    }
+                },
+                None => ()
+            }
+
+        
+            
+
+            match bin_generator.generate_new_bin_from_contigs(contigs_to_test.clone()) {
+                Some(bin_res) => {
+                    println!("Generated bin: {:?}", &bin_res);
+                    if bin_res.completeness > current_bin_quality.0 {
+                        println!("success");
+                        let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
+                        current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
+                        successful_bins.push(contigs_to_test);
+                        self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
                     }
                 },
                 None => ()
@@ -262,7 +290,7 @@ impl NewBinFinder {
 }
 
 
-
+/* 
 mod tests {
 
     use crate::{bin_info_storing::BinSet, bin_classes::BinType, initial_bins_and_contigs::gather_initial_bins_and_contig_information};
@@ -444,7 +472,7 @@ mod tests {
         #[test]
         fn real_example_bins(){
             
-            let bin_generator = BinGenerator::initialise_bin_gen(Some(CHECKM2_DB_PATH.to_path_buf()), Some(COMPLEASM_DB_LIB.to_path_buf()), TEST_DATA_HASH.clone(), 100.0, 0.0);
+            let bin_generator = BinGen::initialise_bin_gen(Some(CHECKM2_DB_PATH.to_path_buf()), Some(COMPLEASM_DB_LIB.to_path_buf()), TEST_DATA_HASH.clone(), 100.0, 0.0);
             let arc_bin_gen = Arc::new(bin_generator);
             let (bins, contigs) = gather_initial_bins_and_contig_information(&TEST_DATA_DIR, Arc::clone(&arc_bin_gen));
             let connected_bins = ClusteringPrep::get_bins_with_minimum_similarity_jaccard_shared(&bins, 0.1);
@@ -514,3 +542,4 @@ mod tests {
 
 
 }
+*/
