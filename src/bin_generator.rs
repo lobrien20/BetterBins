@@ -7,13 +7,13 @@ use crate::{prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic
 
 
  pub struct BinGen {
-    prok_bin_quality_getter: Option<ProkaryoticBinQualityGetter>,
-    euk_bin_quality_getter: Option<EukaryoticBinQualityGetter>,
+    pub prok_bin_quality_getter: Option<ProkaryoticBinQualityGetter>,
+    pub euk_bin_quality_getter: Option<EukaryoticBinQualityGetter>,
     pub hash_directory: PathBuf,
     pub maximum_contamination: f64,
     pub minimum_completeness: f64,
     bin_info_storage: BinInfoStorage,
-    bin_type_predictor: Box<dyn BinTypePrediction>
+    pub bin_type_predictor: Box<dyn BinTypePrediction>
 
 }
 

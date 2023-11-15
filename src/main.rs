@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use bin_generator::{EukRepBasedPredictor, BinTypePrediction, AssumeBinType, MinimumEukMarkerGenes};
+use bin_generator::{EukRepBasedPredictor, BinTypePrediction, AssumeBinType, MinimumEukMarkerGenes, BinGen};
 use bin_info_storage::{BinInfoStorage, BinType};
 use bin_sets::BinSet;
 use clap::{Parser, ValueEnum, Subcommand};
@@ -10,7 +10,7 @@ use initialise_bins_and_contigs::initialise_tool_through_getting_original_bins_a
 use itertools::Itertools;
 use log::{debug, error, info, trace, warn};
 use utils::check_and_remove_bads_in_hash_directory;
-use std::{time::SystemTime, path::PathBuf, sync::Arc, fs};
+use std::{time::SystemTime, path::PathBuf, sync::Arc, fs, hash};
 pub mod utils;
 pub mod contigs;
 pub mod classic_best_bin;
@@ -103,13 +103,15 @@ fn main() {
     }
     check_and_remove_bads_in_hash_directory(&hash_directory);
 
+    let bin_genertaor = BinGen::initialise(None, None, hash_directory.clone(), args.max_contamination, args.min_completeness, BinInfoStorage::initialise_bin_info_storer(), bin_type_predictor);
+
     let initial_bin_info_dir_path = &args.results_directory.join("initial_bin_results_information_dir/");
     fs::create_dir(&initial_bin_info_dir_path);
     let bin_info_storage = BinInfoStorage::initialise_bin_info_storer();
     
-    let (bin_generator, bins) = initialise_tool_through_getting_original_bins_and_contigs(&args.contigs_file_path, initial_bin_info_dir_path, args.checkm2_db_path, args.threads, &args.path_to_bin_dir, 
+    let (bin_generator, bins) = initialise_tool_through_getting_original_bins_and_contigs(initial_bin_info_dir_path, args.checkm2_db_path, args.threads, &args.path_to_bin_dir, 
         args.compleasm_db_dir, args.num_of_compleasm_db_markers, "eukaryota_odb10".to_string(), &hash_directory, args.max_contamination, 
-        args.min_completeness, bin_type_predictor, bin_info_storage);
+        args.min_completeness, Box::new(EukRepBasedPredictor{}), bin_info_storage);
 
     let bin_scorer = &bin_scoring::BinScorer { contamination_weight: args.contamination_weight, completion_weight: args.completion_weight };
     let arc_bin_gen = Arc::new(bin_generator);
@@ -319,7 +321,7 @@ mod tests {
 
     fn run_initial_bin_gen_module_test(contig_file_path: &PathBuf, bin_directory_path: &PathBuf, output_directory_path: &PathBuf, hash_directory_path: &PathBuf) -> (BinGen, Vec<Bin>) {
         let bin_info_storage = BinInfoStorage::initialise_bin_info_storer();
-        let (bin_gen, bins) = initialise_tool_through_getting_original_bins_and_contigs(contig_file_path, output_directory_path, CHECKM2_DB_PATH.clone().into_os_string().into_string().unwrap(), 
+        let (bin_gen, bins) = initialise_tool_through_getting_original_bins_and_contigs(output_directory_path, CHECKM2_DB_PATH.clone().into_os_string().into_string().unwrap(), 
             6, bin_directory_path,
             COMPLEASM_DB_LIB.clone().into_os_string().into_string().unwrap(), 
             255, "eukaryota_odb10".to_string(), hash_directory_path, 

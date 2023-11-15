@@ -173,6 +173,28 @@ impl EukaryoticBinQualityGetter {
 }
 
 
+struct CompleasmDB { // (busco datasets)
+
+    number_of_markers: usize,
+    compleasm_db_path: PathBuf,
+    db_name: String
+
+}
+
+impl CompleasmDB {
+    fn initialise(name_of_db: String, path_to_db: Option<PathBuf>) {
+
+    }
+
+    fn get_number_of_markers_from_database_folder(db_path: PathBuf) {
+
+
+    }
+
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use crate::{contigs::{ProkaryoticContigInformation, ContigType}};
