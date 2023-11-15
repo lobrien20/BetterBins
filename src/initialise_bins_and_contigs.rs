@@ -33,6 +33,7 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(output_director
     if required_contig_information_processing.contains(&"prokaryote".to_string()) {
         let prok_bin_getter = ProkaryoticBinQualityGetter::initialise(&prokaryote_db_path);
         prok_bin_getter.add_prok_info_to_contigs_using_checkm2(&contig_file_path, output_directory, &mut all_contigs, threads);
+        bin_generator.prok_bin_quality_getter = Some(prok_bin_getter);
 
 
     }
@@ -40,11 +41,12 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(output_director
         info!("Running eukaryote analysis of contigs");
         let euk_bin_getter = EukaryoticBinQualityGetter::initialise(&eukaryota_db_path, number_of_markers, compleasm_db_type);
         euk_bin_getter.add_euk_info_to_contigs_using_compleasm(&contig_file_path, &mut all_contigs, output_directory, threads);
+        bin_generator.euk_bin_quality_getter = Some(euk_bin_getter);
         info!("Eukaryote analysis of contigs finished!");
     
     }
     
-
+    
     let all_arc_contigs: Vec<Arc<Contig>> = all_contigs.into_iter().map(|contig| Arc::new(contig)).collect();
 
     let path_to_bin_hashmap = analyse_initial_bin_fastas_and_generate_path_to_bin_dict(fasta_file_paths, all_arc_contigs, &bin_generator);
