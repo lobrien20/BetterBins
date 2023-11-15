@@ -20,6 +20,9 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(output_director
     let mut all_contigs: Vec<Contig> = generate_all_contigs_from_fasta_files(&fasta_file_paths);
     let contig_file_path = output_directory.join("all_used_contigs.fa");
     let arc_contigs_for_create_fasta: Vec<Arc<Contig>> = all_contigs.clone().into_iter().map(|contig| Arc::new(contig)).collect();
+    create_bin_fasta(&arc_contigs_for_create_fasta, &contig_file_path);
+
+    let arc_contigs_for_create_fasta: Vec<Arc<Contig>> = all_contigs.clone().into_iter().map(|contig| Arc::new(contig)).collect();
     if required_contig_information_processing.contains(&"contig_type_checking".to_string()) {
         info!("Running contig type checking");
         ContigTypePredictor::predict_contig_types(&contig_file_path, &mut all_contigs, output_directory).unwrap();
