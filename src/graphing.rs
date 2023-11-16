@@ -210,9 +210,7 @@ impl NewBinFinder {
         successful_bins
     }
     fn test_each_node(&self, bin_distance_graph: Arc<BinDistanceGraph>, bin_gen_arc: Arc<BinGen>, ) -> HashSet<Vec<Arc<Contig>>> {
-        for (current_node, bin) in &bin_distance_graph.node_bin_dict {
 
-        }
         let unique_created_bins: HashSet<Vec<Arc<Contig>>> = bin_distance_graph.node_bin_dict.clone().par_iter().map(|(node, bin)| {
             let mut new_bins = vec![bin.bin_contigs.clone()];
             self.test_node_potential_bins(&Arc::clone(&bin_distance_graph), vec![node], &Arc::clone(&bin_gen_arc), (bin.completeness, bin.contamination), &mut new_bins);
@@ -252,7 +250,6 @@ impl NewBinFinder {
 
             match bin_generator.generate_new_bin_from_contigs(intersect_contig_test.clone()) {
                 Some(bin_res) => {
-                    println!("Generated bin: {:?}", &bin_res);
                     if bin_res.completeness > current_bin_quality.0 {
                         println!("success");
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
@@ -269,7 +266,6 @@ impl NewBinFinder {
 
             match bin_generator.generate_new_bin_from_contigs(contigs_to_test.clone()) {
                 Some(bin_res) => {
-                    println!("Generated bin: {:?}", &bin_res);
                     if bin_res.completeness > current_bin_quality.0 {
                         println!("success");
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
