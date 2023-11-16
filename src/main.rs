@@ -103,7 +103,6 @@ fn main() {
     }
     check_and_remove_bads_in_hash_directory(&hash_directory);
 
-    let bin_genertaor = BinGen::initialise(None, None, hash_directory.clone(), args.max_contamination, args.min_completeness, BinInfoStorage::initialise_bin_info_storer(), bin_type_predictor);
 
     let initial_bin_info_dir_path = &args.results_directory.join("initial_bin_results_information_dir/");
     fs::create_dir(&initial_bin_info_dir_path);
@@ -111,7 +110,7 @@ fn main() {
     
     let (bin_generator, bins) = initialise_tool_through_getting_original_bins_and_contigs(initial_bin_info_dir_path, args.checkm2_db_path, args.threads, &args.path_to_bin_dir, 
         args.compleasm_db_dir, args.num_of_compleasm_db_markers, "eukaryota_odb10".to_string(), &hash_directory, args.max_contamination, 
-        args.min_completeness, Box::new(EukRepBasedPredictor{}), bin_info_storage);
+        args.min_completeness, bin_type_predictor, bin_info_storage);
 
     let bin_scorer = &bin_scoring::BinScorer { contamination_weight: args.contamination_weight, completion_weight: args.completion_weight };
     let arc_bin_gen = Arc::new(bin_generator);
