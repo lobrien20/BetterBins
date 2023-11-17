@@ -10,7 +10,7 @@ use std::sync::Arc;
 use petgraph::{Graph, Undirected, visit::IntoNodeReferences};
 
 use crate::bin_generator::{BinGen, BinGenerator};
-use crate::bin_info_storage::{BinInfoStorage, Bin};
+use crate::bin_info_storage::{BinInfoStorage, Bin, BinType};
 use crate::contigs::Contig;
 
 
@@ -22,11 +22,25 @@ pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, mini
     let mut arc_bin_graph = Arc::new(bin_distance_graph);
     let successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
     let all_successful_bins = successful_bins.into_iter().collect_vec();
-    let all_bins_as_bins: Vec<Bin> = all_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
-    let all_bins_by_information = all_bins_as_bins.into_iter().map(|bin| (bin.bin_contigs, bin.bin_hash, bin.completeness, bin.contamination)).collect_vec();
+    let mut all_bins_as_bins: Vec<Bin> = all_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
+    info!("Graph clustering successfully generated {} hybrid bins from {} unique bins", all_bins_as_bins.len(), unique_bins.len());
+
+    let eukaryotic_bins = all_bins_as_bins.iter()
+        .filter(|bin| bin.bin_type == BinType::eukaryote).map(|bin| bin.clone()).collect_vec();
+    let all_eukaryotic_bin_pairs = ClusteringPrep::get_all_eukaryotic_bin_pairs(&eukaryotic_bins);
+    let bin_distance_graph = BinDistanceGraph::generate_graph(eukaryotic_bins.clone(), all_eukaryotic_bin_pairs);
+    let new_bin_finder = NewBinFinder{};
+    let mut arc_bin_graph = Arc::new(bin_distance_graph);
+    let euk_successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
+    let all_euk_successful_bins: Vec<Bin> = euk_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
+    all_bins_as_bins.extend(all_euk_successful_bins);
+
+    let all_extended_unique_bins = ClusteringPrep::remove_duplicate_bins(all_bins_as_bins);
+    let all_bins_by_information = all_extended_unique_bins.into_iter().map(|bin| (bin.bin_contigs, bin.bin_hash, bin.completeness, bin.contamination)).collect_vec();
+
    // let connected_routes = new_bin_finder.find_connected_routes(&bin_distance_graph);
     // let all_successful_bins = new_bin_finder.test_each_connected_route(bin_distance_graph, connected_routes, bin_generator);
-    info!("Graph clustering successfully generated {} hybrid bins from {} unique bins", all_bins_by_information.len(), unique_bins.len());
+    info!("Graph clustering additional eukaryotic stage: successfully generated {} hybrid bins from {} unique bins", all_bins_by_information.len(), unique_bins.len());
     all_bins_by_information
  
 }
@@ -48,7 +62,22 @@ impl ClusteringPrep {
         }
         unique_bins
     }
+/* 
+    fn get_all_bin_pairs<'a>(bins: &'a Vec<Bin>, minimum_similarity: f64) -> Vec<(&'a Bin, &'a Bin)> {
+        let eukaryotic_bins = bins.iter()
+            .filter(|bin| bin.bin_type == BinType::eukaryote).collect_vec();
+        
+        let eukaryotic_bin_combinations = ClusteringPrep::get_all_eukaryotic_bin_pairs(bins);
+        let prokaryotic_bins = bins.iter().filter(|bin| bin.bin_type == BinType::prokaryote).collect_vec();
+        let prokaryotic_bin_combinations = ClusteringPrep::get_bins_with_minimum_similarity_jaccard_shared(bins, minimum_similarity)
 
+
+    } */
+    fn get_all_eukaryotic_bin_pairs<'a>(bins: &'a Vec<Bin>) -> Vec<(&'a Bin, &'a Bin)> {
+
+        let all_potential_eukaryotic_bin_pairs: Vec<(&'a Bin, &'a Bin)> = bins.into_iter().combinations(2).map(|bin_pair| (bin_pair[0], bin_pair[1])).collect();
+        all_potential_eukaryotic_bin_pairs
+    }
 
 
     fn get_bins_with_minimum_similarity_jaccard_shared<'a>(bins: &'a Vec<Bin>, minimum_similarity: f64) -> Vec<(&'a Bin, &'a Bin)>{
