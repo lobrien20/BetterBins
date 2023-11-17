@@ -18,8 +18,7 @@ impl BinSet {
         BinSet {bins: Vec::new(), bin_set_order: None }
         
     }
-    pub fn make_bin_set_from_bins_vec(bins_vec: Vec<Bin>) -> BinSet {
-        let bin_arc_vec = bins_vec.into_iter().map(|bin| Arc::new(bin)).collect_vec(); // note, creating arc is only relevant for non classical algorithm, but less boilerplate this way
+    pub fn make_bin_set_from_bins_vec(bin_arc_vec: Vec<Arc<Bin>>) -> BinSet {
         BinSet { bins: bin_arc_vec, bin_set_order: None }
     }
 
@@ -30,7 +29,7 @@ impl BinSet {
       
     }
 
-    pub fn create_best_bin_dir_and_info_from_best_hashes(&self, hash_directory: &PathBuf, best_bin_directory: &PathBuf, copy_bins: bool) {
+    pub fn create_bin_set_dir_and_info_from_best_hashes(&self, hash_directory: &PathBuf, best_bin_directory: &PathBuf, copy_bins: bool) {
         debug!("Creating directory for best bin at: {:?}", best_bin_directory);
 
         fs::create_dir(best_bin_directory).unwrap();
@@ -48,11 +47,11 @@ impl BinSet {
             best_bin_infos.push((bin.bin_hash.to_string(), bin.bin_type.to_string(), bin.completeness, bin.contamination, bin.bin_contigs.len()));
 
         }
-        self.write_best_bin_info_file(best_bin_directory, best_bin_infos);
+        self.write_bin_set_info_file(best_bin_directory, best_bin_infos);
 
     }
 
-    pub fn write_best_bin_info_file(&self, best_bin_directory: &PathBuf, best_bin_infos: Vec<(String, String, f64, f64, usize)>) {
+    pub fn write_bin_set_info_file(&self, best_bin_directory: &PathBuf, best_bin_infos: Vec<(String, String, f64, f64, usize)>) {
         let best_bin_file_path = best_bin_directory.join("best_bins_information.tsv");
         let mut best_bin_info_file = File::create(best_bin_file_path).expect("can't create fasta file");
         let best_bin_info_string = best_bin_infos.iter()

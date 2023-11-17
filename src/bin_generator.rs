@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::{Arc, self}, fs::{self, File}, thread, time::Duration, collections::HashSet, any::Any};
+use std::{path::PathBuf, sync::{Arc, self, RwLock}, fs::{self, File}, thread, time::Duration, collections::HashSet, any::Any};
 
 use log::info;
 
@@ -12,7 +12,7 @@ use crate::{prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic
     pub hash_directory: PathBuf,
     pub maximum_contamination: f64,
     pub minimum_completeness: f64,
-    bin_info_storage: BinInfoStorage,
+    bin_info_storage: RwLock<BinInfoStorage>,
     pub bin_type_predictor: Box<dyn BinTypePrediction>
 
 }
@@ -22,7 +22,7 @@ impl BinGen {
         hash_directory: PathBuf, maximum_contamination: f64, minimum_completeness: f64, bin_info_storage: BinInfoStorage, bin_type_predictor: Box<dyn BinTypePrediction>) -> BinGen {
 
         BinGen {prok_bin_quality_getter: prok_bin_quality_getter, euk_bin_quality_getter: euk_bin_quality_getter, 
-            hash_directory: hash_directory, maximum_contamination: maximum_contamination, minimum_completeness: minimum_completeness, bin_info_storage: bin_info_storage, 
+            hash_directory: hash_directory, maximum_contamination: maximum_contamination, minimum_completeness: minimum_completeness, bin_info_storage: RwLock::new(bin_info_storage), 
             bin_type_predictor: bin_type_predictor}
 
     }
@@ -31,9 +31,7 @@ impl BinGen {
 
 
     fn create_relevant_bin_files_and_analyse_bin(&self, contigs: &[Arc<Contig>], bin_hash_string: &str, bin_type: &BinType) -> Option<(f64, f64)> {
-        println!("Creating relevant bin files and analysing bin...");
         let bin_hash_dir_path = &self.hash_directory.join(&bin_hash_string);
-        println!("{}", bin_hash_dir_path.to_str().unwrap());
         let fasta_path = &bin_hash_dir_path.join(&format!("{}.fa", &bin_hash_string));
         let mut new_bin = false;
         match fs::create_dir(&bin_hash_dir_path) { // aim here is to stop parallel races
@@ -65,13 +63,15 @@ impl BinGen {
     }
 
     fn construct_bin_object_from_info(&self, contigs: Vec<Arc<Contig>>, bin_hash_string: String, bin_type: BinType, (completeness, contamination): (f64, f64)) -> Bin {
-        Bin {
+        let the_bin = Bin {
             bin_contigs: contigs, 
             completeness: completeness,
             contamination: contamination,
             bin_type: bin_type,
             bin_hash: bin_hash_string
-        }
+        };
+        self.add_new_bin_info_to_storage(the_bin.clone());
+        the_bin
     }
 
 
@@ -87,6 +87,11 @@ impl BinGen {
         }
     }
 
+    fn add_new_bin_info_to_storage(&self, bin: Bin) {
+        let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
+        unlocked_bin_info.add_bin_to_hashmap(bin);
+    }
+
 
 }
 
@@ -98,7 +103,7 @@ pub trait BinGenerator : Send + Sync {
 impl BinGenerator for BinGen {
     fn generate_new_bin_from_contigs(&self, contigs: Vec<Arc<Contig>>) -> Option<Bin> {
         let bin_hash_string = generate_hash_from_contigs(&contigs);
-        match self.bin_info_storage.check_for_bin_via_hash(&bin_hash_string) {
+        match self.bin_info_storage.read().unwrap().check_for_bin_via_hash(&bin_hash_string) {
             Some(bin) => return Some(bin),
             None => ()
         }

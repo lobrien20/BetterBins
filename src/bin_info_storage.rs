@@ -32,7 +32,7 @@ impl BinInfoStorage {
     }
 
 
-    fn add_bin_to_hashmap(&mut self, bin: Bin) {
+    pub fn add_bin_to_hashmap(&mut self, bin: Bin) {
         self.hash_id_to_bin_hashmap.insert(bin.bin_hash.clone(), bin);
 
         }

@@ -91,7 +91,7 @@ fn main() {
     if !&args.results_directory.is_dir() {
         fs::create_dir(&args.results_directory).unwrap();
     }
-    setup_logger(&args.results_directory.join("output_log.txt")).expect("Failed to setup logger");
+    setup_logger(&args.results_directory.join("betterbins_output.txt")).expect("Failed to setup logger");
 
     rayon::ThreadPoolBuilder::new().num_threads(args.threads).build_global().unwrap();
     let mut hash_directory = args.results_directory.join("hash_directory/");
@@ -101,6 +101,7 @@ fn main() {
             fs::create_dir(&hash_directory).unwrap();
         }}}
     }
+    info!("Checking for any bad directories in hash that may have been produced in previous runs...");
     check_and_remove_bads_in_hash_directory(&hash_directory);
 
 
@@ -116,17 +117,18 @@ fn main() {
     let arc_bin_gen = Arc::new(bin_generator);
     let mut bin_arc_contigs = None;
     if args.run_clustering {
-       let result = run_graph_clustering(bins, Arc::clone(&arc_bin_gen), 0.5);
+       let cluster_output_directory = args.results_directory.join("cluster_results_directory");
+       let result = run_graph_clustering(bins, Arc::clone(&arc_bin_gen), 0.5, cluster_output_directory);
        bin_arc_contigs = Some(result.into_iter().map(|tuple| tuple.0).collect_vec());
     } else {
         bin_arc_contigs = Some(bins.into_iter().map(|bin| bin.bin_contigs).collect_vec());
     }
     let bin_generator = Arc::try_unwrap(arc_bin_gen).ok().unwrap();
-    let best_bins = run_classic_best_bin(bin_arc_contigs.unwrap(), Box::new(bin_generator), bin_scorer);
+    let best_bins = run_classic_best_bin(bin_arc_contigs.unwrap(), Box::new(bin_generator), bin_scorer).into_iter().map(|bin| Arc::new(bin)).collect_vec();
     let best_bin_set = BinSet::make_bin_set_from_bins_vec(best_bins);
     let best_bins_directory = &args.results_directory.join("best_bins_directory/");
 
-    best_bin_set.create_best_bin_dir_and_info_from_best_hashes(&hash_directory, best_bins_directory, true);
+    best_bin_set.create_bin_set_dir_and_info_from_best_hashes(&hash_directory, best_bins_directory, true);
 
 }
 
@@ -350,8 +352,8 @@ mod tests {
             panic!("classic_best_bin_module_test_error: Some bins have the same contigs!");
         }
         
-        let best_bin_struct = BinSet::make_bin_set_from_bins_vec(best_bins);
-        best_bin_struct.create_best_bin_dir_and_info_from_best_hashes(hash_dir, classic_best_bin_test_res_dir, true);
+        let best_bin_struct = BinSet::make_bin_set_from_bins_vec(best_bins.into_iter().map(|bin| Arc::new(bin)).collect_vec());
+        best_bin_struct.create_bin_set_dir_and_info_from_best_hashes(hash_dir, classic_best_bin_test_res_dir, true);
         let files_in_best_bin_dir: Vec<DirEntry> = classic_best_bin_test_res_dir.read_dir().unwrap().filter_map(|x| x.ok()).collect();
         
         assert_eq!(files_in_best_bin_dir.len(), 4);
