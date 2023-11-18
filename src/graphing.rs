@@ -187,6 +187,7 @@ impl NewBinFinder {
         let unique_created_bins: HashSet<Vec<Arc<Contig>>> = bin_distance_graph.node_bin_dict.clone().par_iter().map(|(node, bin)| {
             let mut new_bins = vec![bin.bin_contigs.clone()];
             self.test_node_potential_bins(&Arc::clone(&bin_distance_graph), vec![node], &Arc::clone(&bin_gen_arc), (bin.completeness, bin.contamination), &mut new_bins);
+            info!("One node finished!");
             new_bins
         }).flatten().collect();
       //  let mut unique_bins = HashSet::new();
@@ -195,19 +196,17 @@ impl NewBinFinder {
 
 
     fn test_node_potential_bins(&self, bin_distance_graph: &BinDistanceGraph, current_bin_nodes: Vec<&NodeIndex>, bin_generator: &Arc<BinGen>, current_bin_quality: (f64, f64), successful_bins: &mut Vec<Vec<Arc<Contig>>>) {
-        println!("Testing node: {} potential bins...", bin_distance_graph.node_bin_dict.get(current_bin_nodes[current_bin_nodes.len() - 1]).unwrap().bin_hash);
         let current_bin_test_node = current_bin_nodes[current_bin_nodes.len() - 1];
-        let neighbor_nodes: Vec<NodeIndex> = bin_distance_graph.the_graph.neighbors_undirected(current_bin_test_node.clone()).collect();
-        println!("Has {} node neighbors", neighbor_nodes.len());
-        let mut current_bins: Vec<&Bin> = current_bin_nodes.iter().map(|node| bin_distance_graph.node_bin_dict.get(&node).unwrap()).collect();
-        println!("Current bins equal: {}", current_bins.len());
+        let neighbor_nodes: Vec<NodeIndex> = bin_distance_graph.the_graph.neighbors_undirected(current_bin_test_node.clone())
+            .filter(|neighbor_node| !current_bin_nodes.contains(&neighbor_node)).collect();
 
+        let current_bins: Vec<&Bin> = current_bin_nodes.iter().map(|node| bin_distance_graph.node_bin_dict.get(&node).unwrap()).collect();
+        
         for neighbor_node in neighbor_nodes {
 
             let hypothetical_bin = bin_distance_graph.node_bin_dict.get(&neighbor_node).unwrap();
             let mut bin_test = current_bins.clone();
             bin_test.push(hypothetical_bin);
-            println!("Bin test bin contigs equal: {}", bin_test[0].bin_contigs.clone().len());
             let contigs_to_test: Vec<Arc<Contig>> = bin_test.iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect();
             let mut single_vec = Vec::new();
             let mut intersect_contig_test = Vec::new();
