@@ -1,5 +1,6 @@
 use blake3;
 use itertools::Itertools;
+use log::debug;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fs::{File, self};
 use std::io::{Read, Write};
@@ -107,6 +108,8 @@ pub fn check_hash_directory_not_too_big(hash_directory: &PathBuf) {
     let bin_dir_paths: Vec<PathBuf> = bin_dirs.into_iter().map(|x| x.unwrap().path()).collect();
     if bin_dir_paths.len() > 1000 {
         panic!("Bin hash directory too big");
+    } else {
+        debug!("hash directory size currently: {}", bin_dir_paths.len());
     }
 }
 

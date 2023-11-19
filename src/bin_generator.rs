@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::{Arc, self, RwLock}, fs::{self, File}, thread, ti
 
 use log::info;
 
-use crate::{prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic_contig_gatherer::EukaryoticBinQualityGetter, bin_info_storage::{BinInfoStorage, Bin, BinType}, utils::{generate_hash_from_contigs, create_bin_fasta}, contigs::{Contig, ContigType}};
+use crate::{prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic_contig_gatherer::EukaryoticBinQualityGetter, bin_info_storage::{BinInfoStorage, Bin, BinType}, utils::{generate_hash_from_contigs, create_bin_fasta, check_hash_directory_not_too_big}, contigs::{Contig, ContigType}};
 
 
 
@@ -125,6 +125,7 @@ pub trait BinGenerator : Send + Sync {
 
 impl BinGenerator for BinGen {
     fn generate_new_bin_from_contigs(&self, contigs: Vec<Arc<Contig>>) -> Option<Bin> {
+        check_hash_directory_not_too_big(&self.hash_directory);
         let bin_hash_string = generate_hash_from_contigs(&contigs);
         match self.bin_info_storage.read().unwrap().check_for_bin_via_hash(&bin_hash_string) {
             Some(bin) => return Some(bin),
