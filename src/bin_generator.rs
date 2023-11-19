@@ -1,6 +1,6 @@
 use std::{path::PathBuf, sync::{Arc, self, RwLock}, fs::{self, File}, thread, time::Duration, collections::HashSet, any::Any};
 
-use log::info;
+use log::{info, debug};
 
 use crate::{prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic_contig_gatherer::EukaryoticBinQualityGetter, bin_info_storage::{BinInfoStorage, Bin, BinType}, utils::{generate_hash_from_contigs, create_bin_fasta, check_hash_directory_not_too_big}, contigs::{Contig, ContigType}};
 
@@ -41,9 +41,10 @@ impl BinGen {
                     new_bin = true;
                 },
 
-            Err(_) => match self.wait_for_other_thread_to_complete_bin2(&bin_hash_string) {
+            Err(_) => { info!("Bin already made!");
+                match self.wait_for_other_thread_to_complete_bin2(&bin_hash_string) {
                 Some(bin) => return Some(bin),
-                None => return None
+                None => return None }
             }
 
         }
@@ -72,6 +73,7 @@ impl BinGen {
             bin_hash: bin_hash_string
         };
         self.add_new_bin_info_to_storage(the_bin.clone());
+        debug!("Bin comp is {}, Bin cont is {}", the_bin.completeness, the_bin.contamination);
         if the_bin.contamination > self.maximum_contamination || the_bin.contamination > the_bin.completeness { // directory containing bin info not necessary due to too low bin quality, deletes
             fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap();
         }
