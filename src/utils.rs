@@ -102,6 +102,13 @@ pub fn check_and_remove_bads_in_hash_directory(hash_directory: &PathBuf) -> Atom
 
 }
 
+pub fn check_hash_directory_not_too_big(hash_directory: &PathBuf) {
+    let bin_dirs = fs::read_dir(hash_directory).unwrap();
+    let bin_dir_paths: Vec<PathBuf> = bin_dirs.into_iter().map(|x| x.unwrap().path()).collect();
+    if bin_dir_paths.len() > 1000 {
+        panic!("Bin hash directory too big");
+    }
+}
 
 /* 
 pub fn test_permutation_himem(permutation: Vec<Vec<Arc<Contig>>>, bin_generator: Arc<BinGen>, bin_info_storer: Arc<BinInfoStorer>, bin_scorer: Arc<BinScorer>) -> BinSet {
