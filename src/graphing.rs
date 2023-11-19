@@ -83,8 +83,41 @@ impl ClusteringPrep {
     } */
     fn get_all_eukaryotic_bin_pairs<'a>(bins: &'a Vec<Bin>) -> Vec<(&'a Bin, &'a Bin)> {
 
-        let all_potential_eukaryotic_bin_pairs: Vec<(&'a Bin, &'a Bin)> = bins.into_iter().combinations(2).map(|bin_pair| (bin_pair[0], bin_pair[1])).collect();
+        let all_potential_eukaryotic_bin_pairs: Vec<(&'a Bin, &'a Bin)> = bins.into_iter()
+            .combinations(2)
+            .filter_map(|bin_combination| ClusteringPrep::check_whether_pair_might_improve(bin_combination[0], bin_combination[1]))
+            .collect();
+        
         all_potential_eukaryotic_bin_pairs
+    }
+    fn check_whether_pair_might_improve<'a>(bin_1: &'a Bin, bin_2: &'a Bin) -> Option<(&'a Bin, &'a Bin)> { 
+        let bin_1_contigs = bin_1.bin_contigs.iter().collect_vec();
+        let bin_2_contigs = bin_2.bin_contigs.iter().collect_vec();
+        
+        let mut bin_1_unique_contig_markers: HashSet<String> = bin_1_contigs.iter() // markers that are in contigs that only bin 1 has
+            .filter(|contig| !bin_2_contigs.contains(contig))
+            .filter_map(|contig| contig.eukaryotic_contig_info.clone())
+            .map(|contig_euk_info| contig_euk_info.complete_buscos)
+            .flatten().collect();
+
+        let mut bin_2_unique_contig_markers: HashSet<String> = bin_2_contigs.iter() // markers that are in contigs that only bin 1 has
+            .filter(|contig| !bin_1_contigs.contains(contig))
+            .filter_map(|contig| contig.eukaryotic_contig_info.clone())
+            .map(|contig_euk_info| contig_euk_info.complete_buscos)
+            .flatten().collect();
+        // logic here is it checks if combining the contigs unique to each bin will result in an increase in unique markers (unique meaning increased completeness)
+        let combined_bin_1_2_unique_markers: HashSet<&String> = bin_1_unique_contig_markers.iter().chain(bin_2_unique_contig_markers.iter()).collect();
+        if (combined_bin_1_2_unique_markers.len() > bin_1_unique_contig_markers.len()) & (combined_bin_1_2_unique_markers.len() > bin_2_unique_contig_markers.len()) {
+            Some((bin_1, bin_2))
+        } else {
+            None
+        }
+
+
+        // let bin_1_eukaryotic_markers = bin_1.bin_contigs.iter()
+        //    .filter_map(|contig| contig.eukaryotic_contig_info.clone())
+         //   .map(|euk_contig_info| euk_contig_info.complete_buscos)
+         //   .collect_vec();
     }
 
 

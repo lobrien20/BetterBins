@@ -129,6 +129,7 @@ fn main() {
     let best_bins_directory = &args.results_directory.join("best_bins_directory/");
 
     best_bin_set.create_bin_set_dir_and_info_from_best_hashes(&hash_directory, best_bins_directory, true);
+    fs::remove_dir_all(&hash_directory).unwrap();
 
 }
 

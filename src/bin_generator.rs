@@ -30,7 +30,7 @@ impl BinGen {
 
 
 
-    fn create_relevant_bin_files_and_analyse_bin(&self, contigs: &[Arc<Contig>], bin_hash_string: &str, bin_type: &BinType) -> Option<(f64, f64)> {
+    fn create_relevant_bin_files_and_analyse_bin(&self, contigs: Vec<Arc<Contig>>, bin_hash_string: &str, bin_type: &BinType) -> Option<Bin> {
         let bin_hash_dir_path = &self.hash_directory.join(&bin_hash_string);
         let fasta_path = &bin_hash_dir_path.join(&format!("{}.fa", &bin_hash_string));
         let mut new_bin = false;
@@ -41,7 +41,10 @@ impl BinGen {
                     new_bin = true;
                 },
 
-            Err(_) => self.wait_for_other_thread_to_complete_bin(bin_hash_dir_path)
+            Err(_) => match self.wait_for_other_thread_to_complete_bin2(&bin_hash_string) {
+                Some(bin) => return Some(bin),
+                None => return None
+            }
 
         }
         let mut bin_quality = None;
@@ -52,13 +55,11 @@ impl BinGen {
             BinType::prokaryote => bin_quality = self.prok_bin_quality_getter.as_ref().unwrap().analyse_bin(&contigs, fasta_path, bin_hash_dir_path, &bin_hash_string)
         
         };
-        
-        if new_bin == true {
-        
-            File::create(&bin_hash_dir_path.join("done_file.txt")).unwrap(); // creates done file for self.wait_for_other_thread_to_complete_bin() method
+        match bin_quality {
+            Some(bin_quality) => Some(self.construct_bin_object_from_info(contigs.clone(), bin_hash_string.to_string(), bin_type.clone(), (bin_quality.0, bin_quality.1))),
+            None => None
         }
-        
-        bin_quality
+
     
     }
 
@@ -71,6 +72,9 @@ impl BinGen {
             bin_hash: bin_hash_string
         };
         self.add_new_bin_info_to_storage(the_bin.clone());
+        if the_bin.contamination > self.maximum_contamination || the_bin.contamination > the_bin.completeness { // directory containing bin info not necessary due to too low bin quality, deletes
+            fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap();
+        }
         the_bin
     }
 
@@ -86,6 +90,25 @@ impl BinGen {
             thread::sleep(Duration::from_millis(1));
         }
     }
+
+    fn wait_for_other_thread_to_complete_bin2(&self, bin_hash_string: &str) -> Option<Bin> {
+        let mut time_out = 0;
+        loop {
+            time_out += 1;
+            if time_out == 300000 {
+                panic!("Bin generator waiting for other thread timeout|");
+            }
+            match self.bin_info_storage.read().unwrap().check_for_bin_via_hash(bin_hash_string) {
+                Some(bin) => return Some(bin),
+                None => if self.bin_info_storage.read().unwrap().check_if_failed_bin(bin_hash_string) {
+                    return None
+                }
+            }
+            thread::sleep(Duration::from_millis(50));
+
+        }
+    }
+
 
     fn add_new_bin_info_to_storage(&self, bin: Bin) {
         let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
@@ -112,9 +135,9 @@ impl BinGenerator for BinGen {
         match self.bin_type_predictor.predict_type_of_bin(&contigs) {
             Some(bin_type) => {
                 println!("Bin type is: {}", bin_type.to_string());
-                match self.create_relevant_bin_files_and_analyse_bin(&contigs, &bin_hash_string, &bin_type) {
+                match self.create_relevant_bin_files_and_analyse_bin(contigs, &bin_hash_string, &bin_type) {
         
-                    Some((completeness, contamination)) => return Some(self.construct_bin_object_from_info(contigs, bin_hash_string, bin_type, (completeness, contamination))),
+                    Some(bin) => return Some(bin),
                     None => return None
         
                 }

@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::{collections::HashMap, sync::Arc};
 
 use std::hash::{Hash, Hasher};
@@ -7,13 +8,15 @@ use crate::{contigs::Contig, bin_sets::BinSet};
 #[derive(Clone, Debug)]
 pub struct BinInfoStorage {
 
-    hash_id_to_bin_hashmap: HashMap<String, Bin>
+    hash_id_to_bin_hashmap: HashMap<String, Bin>,
+    failed_hash_ids: HashSet<String>
 }
 
 impl BinInfoStorage {
     pub fn initialise_bin_info_storer() -> BinInfoStorage {
         let mut bin_info_storer = BinInfoStorage {
             hash_id_to_bin_hashmap: HashMap::new(),
+            failed_hash_ids: HashSet::new()
         };
         bin_info_storer
     }
@@ -33,9 +36,30 @@ impl BinInfoStorage {
 
 
     pub fn add_bin_to_hashmap(&mut self, bin: Bin) {
+    
         self.hash_id_to_bin_hashmap.insert(bin.bin_hash.clone(), bin);
 
         }
+
+    pub fn check_if_failed_bin(&self, bin_hash_string: &str) -> bool {
+        if self.failed_hash_ids.contains(bin_hash_string) {
+           
+            true
+       
+        } else {
+           
+            false
+        
+        }
+    }
+
+
+    pub fn add_failed_bin_hash_to_hashset(&mut self, bin_hash_string: String) {
+    
+        self.failed_hash_ids.insert(bin_hash_string);
+    
+    }
+
 
 }
 #[derive(Debug, PartialEq, Clone, Hash)]

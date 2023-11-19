@@ -51,6 +51,30 @@ impl BinSet {
 
     }
 
+    pub fn create_bin_set_dir_and_info_from_bin_gen(&self, hash_directory: &PathBuf, best_bin_directory: &PathBuf, copy_bins: bool) {
+        debug!("Creating directory for best bin at: {:?}", best_bin_directory);
+
+        fs::create_dir(best_bin_directory).unwrap();
+        let options = CopyOptions::new();
+        let mut best_bin_infos = Vec::new();
+        for bin in &self.bins {
+            let hash_path = hash_directory.join(&bin.bin_hash);
+
+            if copy_bins == true {
+
+                fs_extra::dir::copy(&hash_path, &best_bin_directory, &options).unwrap();
+
+            }
+
+            best_bin_infos.push((bin.bin_hash.to_string(), bin.bin_type.to_string(), bin.completeness, bin.contamination, bin.bin_contigs.len()));
+
+        }
+        self.write_bin_set_info_file(best_bin_directory, best_bin_infos);
+
+    }
+
+
+
     pub fn write_bin_set_info_file(&self, best_bin_directory: &PathBuf, best_bin_infos: Vec<(String, String, f64, f64, usize)>) {
         let best_bin_file_path = best_bin_directory.join("best_bins_information.tsv");
         let mut best_bin_info_file = File::create(best_bin_file_path).expect("can't create fasta file");
