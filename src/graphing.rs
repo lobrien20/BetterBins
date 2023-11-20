@@ -247,10 +247,11 @@ impl NewBinFinder {
             bin_test.iter().map(|bin| bin.bin_contigs.clone())
                 .for_each(|x| {
                     if !single_vec.contains(&x) {
+                        single_vec.push(x.clone());
+
                         intersect_contig_test.extend(x);
-                    } else {
-                        single_vec.push(x)
-                    }
+
+                    } 
                 });
 
             match bin_generator.generate_new_bin_from_contigs(intersect_contig_test.clone()) {
