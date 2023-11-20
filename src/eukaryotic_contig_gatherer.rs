@@ -1,5 +1,6 @@
-use std::{path::PathBuf, fs::File, io::{Read, Write}, sync::Arc, process::Command, collections::HashSet};
+use std::{path::PathBuf, fs::File, io::{Read, Write}, sync::Arc, process::Command, collections::{HashSet, HashMap}};
 use glob::glob;
+use itertools::Itertools;
 use log::info;
 use crate::{contigs::{Contig, EukaryoticContigInformation}};
 
@@ -36,7 +37,7 @@ impl EukaryoticBinQualityGetter {
         let org_contig_busco_info = self.get_orf_contig_busco_info(busco_original_table_path);
         EukaryoticBinQualityGetter::add_busco_info_to_contigs(contigs, org_contig_busco_info);
 
-        
+        self.write_amount_of_buscos_in_contig_data(contigs, output_directory);
     
     }
     
@@ -76,6 +77,40 @@ impl EukaryoticBinQualityGetter {
     
         }
     
+    }
+
+    fn write_amount_of_buscos_in_contig_data(&self, contigs: &[Contig], output_directory: &PathBuf) {
+        let mut busco_marker_dict: HashMap<String, usize> = HashMap::new();
+        for contig in contigs {
+            match contig.eukaryotic_contig_info.clone() {
+                Some(euk_info) => {
+                    let busco_ids_in_contig = euk_info.complete_buscos;
+                    let unique_busco_ids_in_contig: Vec<&String> = busco_ids_in_contig.iter().unique().collect();
+                    if unique_busco_ids_in_contig.len() < busco_ids_in_contig.len() {
+                        info!("Warning - contig has multiple duplicate unique buscos");
+                    }
+                    for busco_id in busco_ids_in_contig {
+
+                    
+                    if let Some(count) = busco_marker_dict.get_mut(&busco_id) {
+                        *count = *count + 1;
+                    } else {
+                        busco_marker_dict.insert(busco_id.clone(), 1);
+                    }
+                }                 
+                }
+                None => ()
+            }
+        }
+        let mut output_file = File::create(&output_directory.join("buscos_in_contigs.txt")).unwrap();
+        let mut busco_in_contig_string = format!("Total buscos in chosen marker db: {}\n Total number of unique buscos in data: {}\nbusco_id,id_count\n", 
+            &self.number_of_marker_ids, &busco_marker_dict.len());
+        for (id, count) in busco_marker_dict {
+            busco_in_contig_string.push_str(&format!("{},{}\n", &id, count));
+        }
+        output_file.write_all(busco_in_contig_string.as_bytes()).unwrap();
+
+
     }
 
     pub fn analyse_bin(&self, contigs: &[Arc<Contig>], output_hash_directory: &PathBuf) -> Option<(f64, f64)> {
@@ -236,6 +271,30 @@ mod tests {
 
         contig_vec
     }
+
+    fn create_example_eukaryotic_contigs_2() -> Vec<Arc<Contig>> {
+        let mut contig_vec = Vec::new();
+        contig_vec.push(Arc::new(Contig {
+            header: "na".to_string(),
+            sequence: "na".to_string(),
+            prokaryotic_contig_info: None,
+            eukaryotic_contig_info: Some(EukaryoticContigInformation {complete_buscos: vec!["779909at2759".to_string()]}),
+            prok_or_euk: Some(ContigType::Eukaryote)
+        }));
+        contig_vec.push(Arc::new(Contig {
+            header: "na".to_string(),
+            sequence: "na".to_string(),
+            prokaryotic_contig_info: None,
+            eukaryotic_contig_info: Some(EukaryoticContigInformation {complete_buscos: vec!["290630at2759".to_string(), "290630at2759".to_string()]}), // duplicates so should only count once
+            prok_or_euk: Some(ContigType::Eukaryote)
+        }));
+
+
+        contig_vec
+    }
+
+
+
     fn initialise_test_euk_gatherer() -> EukaryoticBinQualityGetter {
         EukaryoticBinQualityGetter::initialise(&COMPLEASM_DB_LIB.to_str().unwrap(), 255, "eukaryota_odb10".to_string())
     }
