@@ -240,26 +240,20 @@ impl NewBinFinder {
             let hypothetical_bin = bin_distance_graph.node_bin_dict.get(&neighbor_node).unwrap();
             let mut bin_test = current_bins.clone();
             bin_test.push(hypothetical_bin);
-            let contigs_to_test: Vec<Arc<Contig>> = bin_test.iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect();
-            let mut single_vec = Vec::new();
-            let mut intersect_contig_test = Vec::new();
 
-            bin_test.iter().map(|bin| bin.bin_contigs.clone())
-                .for_each(|x| {
-                    if !single_vec.contains(&x) {
-                        single_vec.push(x.clone());
+            let current_bin_contigs: HashSet<Arc<Contig>> = current_bins.clone().into_iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect();
+            let hypothetical_bin_contigs: HashSet<Arc<Contig>> = hypothetical_bin.bin_contigs.clone().into_iter().collect();
+            
+            let union_contigs: Vec<Arc<Contig>> = current_bin_contigs.union(&hypothetical_bin_contigs).cloned().collect();
+            let intersection_contigs: Vec<Arc<Contig>> = current_bin_contigs.intersection(&hypothetical_bin_contigs).cloned().collect();
 
-                        intersect_contig_test.extend(x);
 
-                    } 
-                });
-
-            match bin_generator.generate_new_bin_from_contigs(intersect_contig_test.clone()) {
+            match bin_generator.generate_new_bin_from_contigs(intersection_contigs.clone()) {
                 Some(bin_res) => {
                     if bin_res.completeness > current_bin_quality.0 || bin_res.contamination < current_bin_quality.1 {
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
-                        successful_bins.push(intersect_contig_test);
+                        successful_bins.push(intersection_contigs);
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
                     }
                 },
@@ -269,13 +263,13 @@ impl NewBinFinder {
         
             
 
-            match bin_generator.generate_new_bin_from_contigs(contigs_to_test.clone()) {
+            match bin_generator.generate_new_bin_from_contigs(union_contigs.clone()) {
                 Some(bin_res) => {
                     if bin_res.completeness > current_bin_quality.0 || bin_res.contamination < current_bin_quality.1 {
 
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
-                        successful_bins.push(contigs_to_test);
+                        successful_bins.push(union_contigs);
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
                     }
                 },
