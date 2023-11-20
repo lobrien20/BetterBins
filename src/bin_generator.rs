@@ -77,9 +77,9 @@ impl BinGen {
         };
         self.add_new_bin_info_to_storage(the_bin.clone());
         debug!("Bin comp is {}, Bin cont is {}", the_bin.completeness, the_bin.contamination);
-        if the_bin.contamination > self.maximum_contamination || the_bin.contamination > the_bin.completeness { // directory containing bin info not necessary due to too low bin quality, deletes
-            fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap();
-        }
+  //      if the_bin.contamination > self.maximum_contamination || the_bin.contamination > the_bin.completeness { // directory containing bin info not necessary due to too low bin quality, deletes
+    //        fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap();
+     //   } 
         fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap(); // Temporary measure!!!
 
         the_bin
