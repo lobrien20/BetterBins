@@ -58,7 +58,10 @@ impl BinGen {
         };
         match bin_quality {
             Some(bin_quality) => Some(self.construct_bin_object_from_info(contigs.clone(), bin_hash_string.to_string(), bin_type.clone(), (bin_quality.0, bin_quality.1))),
-            None => None
+            None => {
+                self.add_failed_bin_to_storage(bin_hash_string);
+                None
+            }
         }
 
     
@@ -97,7 +100,7 @@ impl BinGen {
         let mut time_out = 0;
         loop {
             time_out += 1;
-            if time_out == 300000 {
+            if time_out == 1000 {
                 panic!("Bin generator waiting for other thread timeout|");
             }
             match self.bin_info_storage.read().unwrap().check_for_bin_via_hash(bin_hash_string) {
@@ -106,7 +109,7 @@ impl BinGen {
                     return None
                 }
             }
-            thread::sleep(Duration::from_millis(50));
+            thread::sleep(Duration::from_millis(100));
 
         }
     }
@@ -116,7 +119,10 @@ impl BinGen {
         let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
         unlocked_bin_info.add_bin_to_hashmap(bin);
     }
-
+    fn add_failed_bin_to_storage(&self, bin_hash_string: &str) {
+        let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
+        unlocked_bin_info.add_failed_bin_hash_to_hashset(bin_hash_string.to_string());
+    }
 
 }
 
