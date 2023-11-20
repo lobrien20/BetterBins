@@ -80,6 +80,8 @@ impl BinGen {
         if the_bin.contamination > self.maximum_contamination || the_bin.contamination > the_bin.completeness { // directory containing bin info not necessary due to too low bin quality, deletes
             fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap();
         }
+        fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap(); // Temporary measure!!!
+
         the_bin
     }
 
