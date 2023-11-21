@@ -88,7 +88,6 @@ fn identify_best_bin_from_potential_bin_choices(potential_bins: &Vec<Bin>, bin_s
         .collect_vec();
     
     bin_score_vec.sort_by(|(_, a), (_, b)| b.partial_cmp(a).unwrap());
-    let best_bin_score = bin_score_vec[0].1;
     
 
 
@@ -100,7 +99,7 @@ fn identify_best_bin_from_potential_bin_choices(potential_bins: &Vec<Bin>, bin_s
             info!("Multiple best bins of same score, bin picked instead by least amount of contigs!");
 
     }
-    println!("Best bin has score of {} and {} contigs", potential_best_bins[0].1, potential_best_bins[0].0.bin_contigs.len());
+    info!("Best bin has score of {} and {} contigs", potential_best_bins[0].1, potential_best_bins[0].0.bin_contigs.len());
     potential_best_bins[0].0.clone()
 
 

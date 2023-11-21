@@ -137,7 +137,6 @@ pub trait BinGenerator : Send + Sync {
 
 impl BinGenerator for BinGen {
     fn generate_new_bin_from_contigs(&self, contigs: Vec<Arc<Contig>>) -> Option<Bin> {
-        check_hash_directory_not_too_big(&self.hash_directory);
         let bin_hash_string = generate_hash_from_contigs(&contigs);
         match self.bin_info_storage.read().unwrap().check_for_bin_via_hash(&bin_hash_string) {
             Some(bin) => return Some(bin),
