@@ -30,9 +30,11 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(output_director
 
     
     if required_contig_information_processing.contains(&"prokaryote".to_string()) {
+        info!("Running prokaryote contig analysis");
         let prok_bin_getter = ProkaryoticBinQualityGetter::initialise(&prokaryote_db_path);
         prok_bin_getter.add_prok_info_to_contigs_using_checkm2(&contig_file_path, output_directory, &mut all_contigs, threads);
         bin_generator.prok_bin_quality_getter = Some(prok_bin_getter);
+        info!("Prokaryote contig analysis finished");
 
 
     }
@@ -193,7 +195,7 @@ fn find_bin_fastas(bin_dir: &PathBuf) -> Vec<PathBuf> {
         let path = entry.path();
         if data.is_file() {
             if let Some(ext) = path.extension() {
-                if ext == "fa" || ext == "fasta" {
+                if ext == "fa" || ext == "fasta" || ext == "fna" {
                     found_bin_in_dir = true;
                     fasta_paths.push(path)
                 }
