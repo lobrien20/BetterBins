@@ -21,7 +21,9 @@ impl BinInfoStorage {
         bin_info_storer
     }
 
-
+    pub fn add_preexisting_bins_to_info_storage() {
+        
+    }
 
 
     pub fn check_for_bin_via_hash(&self, bin_hash_string: &str ) -> Option<Bin> {

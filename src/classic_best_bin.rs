@@ -17,6 +17,7 @@ use crate::bin_scoring::BinScorer;
 
 pub fn run_classic_best_bin(mut contig_sets: Vec<Vec<Arc<Contig>>>, bin_generator: Box<dyn BinGenerator>, bin_scorer: &BinScorer) -> Vec<Bin> {
     let mut current_best_bins = Vec::new();
+    info!("Now running classic best bin!");
     if contig_sets.len() == 0 {
         panic!("No bins to run classic best bin on.");
     }

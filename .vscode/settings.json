@@ -1,5 +1,7 @@
 {
     "rust-analyzer.linkedProjects": [
         "./Cargo.toml"
-    ]
+    ],
+    "editor.inlayHints.enabled": "off",
+    "python.terminal.activateEnvironment": true
 }

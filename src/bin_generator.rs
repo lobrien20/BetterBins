@@ -86,36 +86,26 @@ impl BinGen {
     }
 
 
-    fn wait_for_other_thread_to_complete_bin(&self, bin_hash_dir_path: &PathBuf) {
-        let done_file_path = &bin_hash_dir_path.join("done_file.txt");
-        let mut time_out = 0;
-        while !done_file_path.is_file() {
-            time_out += 1;
-            if time_out == 300000 {
-                panic!("Contig hash directory for bin found, but waiting for done file still not generated. Panick. This was at: {}", &bin_hash_dir_path.to_string_lossy());
-            }
-            thread::sleep(Duration::from_millis(1));
-        }
-    }
+
 
     fn wait_for_other_thread_to_complete_bin2(&self, bin_hash_string: &str) -> Option<Bin> {
         let mut time_out = 0;
         loop {
             time_out += 1;
             if time_out == 1000 {
-                panic!("Bin generator waiting for other thread timeout|");
+                panic!("Bin generator waiting for other thread timeout");
             }
-            match self.bin_info_storage.read().unwrap().check_for_bin_via_hash(bin_hash_string) {
-                Some(bin) => return Some(bin),
-                None => if self.bin_info_storage.read().unwrap().check_if_failed_bin(bin_hash_string) {
-                    return None
-                }
+            let read_guard = self.bin_info_storage.read().unwrap();
+            if let Some(bin) = read_guard.check_for_bin_via_hash(bin_hash_string) {
+                return Some(bin);
             }
+            if read_guard.check_if_failed_bin(bin_hash_string) {
+                return None;
+            }
+            drop(read_guard); // Explicitly drop the read guard if you want to release the lock here
             thread::sleep(Duration::from_millis(100));
-
         }
     }
-
 
     fn add_new_bin_info_to_storage(&self, bin: Bin) {
         let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
@@ -140,7 +130,13 @@ impl BinGenerator for BinGen {
         let bin_hash_string = generate_hash_from_contigs(&contigs);
         match self.bin_info_storage.read().unwrap().check_for_bin_via_hash(&bin_hash_string) {
             Some(bin) => return Some(bin),
-            None => ()
+            None => { if self.bin_info_storage.read().unwrap().check_if_failed_bin(&bin_hash_string) {
+                return None
+            } else {
+                ()
+            }
+
+            }
         }
         println!("Predicting bin type!");
         
