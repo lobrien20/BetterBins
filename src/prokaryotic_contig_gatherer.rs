@@ -36,7 +36,7 @@ impl ProkaryoticBinQualityGetter {
             None => (),
         }
         let thread_str = threads.to_string();
-        fs::remove_dir_all(&checkm2_contig_result_directory).unwrap();
+        fs::remove_dir_all(&checkm2_contig_result_directory); // in case of situation where the checkm2 was running midway and crashed, cleans up directory
         fs::create_dir(&checkm2_contig_result_directory).unwrap();
         let mut checkm2_args = vec!["predict", "-i", contig_path_str, "-x", "fa", "-o", &checkm2_contig_result_directory, "--database_path", checkm2_db_path_str, "-t", &thread_str, "--force", "--quiet"];
 
