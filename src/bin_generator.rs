@@ -124,7 +124,7 @@ impl BinGen {
     fn add_failed_bin_to_storage(&self, bin_hash_string: &str) {
         let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
         unlocked_bin_info.add_failed_bin_hash_to_hashset(bin_hash_string.to_string());
-        fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &bin_hash_string))).unwrap(); // Temporary measure!!!
+        // fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &bin_hash_string))).unwrap(); // Temporary measure!!!
 
     }
 
