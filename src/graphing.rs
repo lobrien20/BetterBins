@@ -28,16 +28,16 @@ pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, mini
     let mut all_bins_as_bins: Vec<Bin> = all_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
     info!("Graph clustering successfully generated {} hybrid bins from {} unique bins", all_bins_as_bins.len(), unique_bins.len());
 
-    let eukaryotic_bins = all_bins_as_bins.iter()
-        .filter(|bin| bin.bin_type == BinType::eukaryote).map(|bin| bin.clone()).collect_vec();
+//    let eukaryotic_bins = all_bins_as_bins.iter()
+ //       .filter(|bin| bin.bin_type == BinType::eukaryote).map(|bin| bin.clone()).collect_vec();
     
-    let all_eukaryotic_bin_pairs = ClusteringPrep::get_all_eukaryotic_bin_pairs(&eukaryotic_bins);
-    let bin_distance_graph = BinDistanceGraph::generate_graph(eukaryotic_bins.clone(), all_eukaryotic_bin_pairs);
-    let new_bin_finder = NewBinFinder{};
-    let arc_bin_graph = Arc::new(bin_distance_graph);
-    let euk_successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
-    let all_euk_successful_bins: Vec<Bin> = euk_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
-    all_bins_as_bins.extend(all_euk_successful_bins);
+  //  let all_eukaryotic_bin_pairs = ClusteringPrep::get_all_eukaryotic_bin_pairs(&eukaryotic_bins);
+   // let bin_distance_graph = BinDistanceGraph::generate_graph(eukaryotic_bins.clone(), all_eukaryotic_bin_pairs);
+  //  let new_bin_finder = NewBinFinder{};
+   // let arc_bin_graph = Arc::new(bin_distance_graph);
+   // let euk_successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
+   // let all_euk_successful_bins: Vec<Bin> = euk_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
+   // all_bins_as_bins.extend(all_euk_successful_bins);
 
     let all_extended_unique_bins = ClusteringPrep::remove_duplicate_bins(all_bins_as_bins).into_iter().map(|bin| Arc::new(bin)).collect_vec();
     let bin_set_of_bins_produced_by_clustering = BinSet::make_bin_set_from_bins_vec(all_extended_unique_bins);
