@@ -3,6 +3,8 @@ use std::{collections::HashMap, sync::Arc};
 
 use std::hash::{Hash, Hasher};
 
+use itertools::Itertools;
+
 use crate::{contigs::Contig, bin_sets::BinSet};
 
 #[derive(Clone, Debug)]
@@ -30,6 +32,7 @@ impl BinInfoStorage {
             None => None
 
         }
+        
     }
 
 
@@ -40,6 +43,7 @@ impl BinInfoStorage {
         }
 
     pub fn check_if_failed_bin(&self, bin_hash_string: &str) -> bool {
+        
         self.failed_hash_ids.contains(bin_hash_string) 
 
     }
@@ -79,6 +83,12 @@ pub struct Bin {
     pub bin_hash: String
 
 
+}
+
+impl Bin {
+    pub fn get_all_bin_kmers(&self, kmer_size: usize) -> Vec<String> {
+        self.bin_contigs.iter().map(|contig| contig.get_kmers(kmer_size)).flatten().collect_vec()
+    }
 }
 
 // Enables use of bin in hashmap through using its contigs

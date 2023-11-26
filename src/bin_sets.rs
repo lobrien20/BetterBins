@@ -76,7 +76,7 @@ impl BinSet {
 
 
     pub fn write_bin_set_info_file(&self, best_bin_directory: &PathBuf, best_bin_infos: Vec<(String, String, f64, f64, usize)>) {
-        let best_bin_file_path = best_bin_directory.join("best_bins_information.tsv");
+        let best_bin_file_path = best_bin_directory.join("bin_set_information.tsv");
         let mut best_bin_info_file = File::create(best_bin_file_path).expect("can't create fasta file");
         let best_bin_info_string = best_bin_infos.iter()
             .map(|x| format!("{}\t{}\t{}\t{}\t{}", x.0, x.1, x.2, x.3, x.4)).join("\n");

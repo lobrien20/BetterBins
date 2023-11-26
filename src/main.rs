@@ -23,59 +23,7 @@ pub mod bin_sets;
 pub mod bin_generator;
 pub mod bin_scoring;
 pub mod graphing;
-/* 
-fn main() {
- // Make sure to add functions ensuring checkm2 database and compleasm database!
-    let args = Args::parse();
-    if !&args.results_directory.is_dir() {
-        fs::create_dir(&args.results_directory).unwrap();
-    }
-    setup_logger(&args.results_directory.join("output_log.txt")).expect("Failed to setup logger");
 
-    rayon::ThreadPoolBuilder::new().num_threads(args.threads).build_global().unwrap();
-    let mut hash_directory = args.results_directory.join("hash_directory/");
-    match args.hash_directory {
-        Some(hash_dir) => hash_directory = hash_dir,
-        None => {  {if !&hash_directory.is_dir() {
-            fs::create_dir(&hash_directory).unwrap();
-        }}}
-    }
-    check_and_remove_bads_in_hash_directory(&hash_directory);
-
-    let bin_generator = BinGenerator::initialise_bin_gen(Some(args.checkm2_db_path), Some(args.compleasm_db_dir), hash_directory.clone(), args.max_contamination, args.min_completeness);
-    let bin_generator_arc = Arc::new(bin_generator);
-    let (initial_bins, contigs) = gather_initial_bins_and_contig_information(&args.directory_of_bins, Arc::clone(&bin_generator_arc));
-    let mut bins_to_test = Vec::new();
-    match args.clustering {
-        true => {
-            bins_to_test = run_graph_clustering(initial_bins.clone(), Arc::clone(&bin_generator_arc), 0.5);
-
-         //   bins_to_test = run_bin_clustering_module_to_generate_all_potential_bins(&args.results_directory, initial_bins, contigs, Arc::clone(&bin_generator_arc));
-        },
-        false => {
-            bins_to_test = initial_bins.into_iter().map(|x| (x.bin_contigs.unwrap(), x.bin_hash, x.completeness.unwrap(), x.contamination.unwrap())).collect_vec();
-        }
-    }
-
-    let bin_scorer = BinScorer {contamination_weight: args.contamination_weight, completion_weight: args.completion_weight, scoring_approach: BinSetScore::SharedCompCont, evo_completion_scale_power: args.completion_power_weight, evo_contamination_scale_power: args.contamination_power_weight};
-
-    match args.ensemble_approach {
-        EnsembleApproach::classic => {
-            let best_bins = run_classic_best_bin_module(bins_to_test, Arc::clone(&bin_generator_arc), &bin_scorer);
-            best_bins.create_best_bin_dir_and_info_from_best_hashes(&hash_directory, &args.results_directory.join("best_bins_directory/"), true);
-
-        },
-
-        EnsembleApproach::evo => {
-            let contig_sets: Vec<Vec<Arc<Contig>>> = bins_to_test.into_iter().map(|x| x.0.clone()).collect();
-            let evo_alg_runner = initialise_evolutionary_alg_structs(args.perc_mutation, contig_sets, args.perc_crossover, args.permutations_per_generation, args.total_generations, args.parent_picker);
-            run_evolutionary_alg(Arc::clone(&bin_generator_arc), Arc::new(bin_scorer), &args.results_directory, &hash_directory, evo_alg_runner);
-        }
-
-    }
-
-}
-*/ 
 fn main() {
     let args = Cli::parse();
     let mut bin_type_predictor: Box<dyn BinTypePrediction> = Box::new(EukRepBasedPredictor{});
@@ -117,11 +65,12 @@ fn main() {
     let mut bin_arc_contigs = None;
     if args.run_clustering {
        let cluster_output_directory = args.results_directory.join("cluster_results_directory");
-       let result = run_graph_clustering(bins, Arc::clone(&arc_bin_gen), 0.5, cluster_output_directory);
-       bin_arc_contigs = Some(result.into_iter().map(|tuple| tuple.0).collect_vec());
+       let bin_set = run_graph_clustering(bins, Arc::clone(&arc_bin_gen), args.max_jaccard_distance, args.max_euclidean_distance, cluster_output_directory);
+       bin_arc_contigs = Some(bin_set.bins.into_iter().map(|bin| bin.bin_contigs.clone()).collect_vec());
     } else {
         bin_arc_contigs = Some(bins.into_iter().map(|bin| bin.bin_contigs).collect_vec());
     }
+
     let bin_generator = Arc::try_unwrap(arc_bin_gen).ok().unwrap();
     let best_bins = run_classic_best_bin(bin_arc_contigs.unwrap(), Box::new(bin_generator), bin_scorer).into_iter().map(|bin| Arc::new(bin)).collect_vec();
     let best_bin_set = BinSet::make_bin_set_from_bins_vec(best_bins);
@@ -165,10 +114,10 @@ struct Cli {
     #[arg(short, long, default_value = "false")]
     run_clustering: bool,
 
-    #[arg(short, long, default_value = "0.5")]
+    #[arg(short, long, default_value = "0.75")]
     contamination_weight: f64,
     
-    #[arg(short, long, default_value = "0.5")]
+    #[arg(short, long, default_value = "0.25")]
     completion_weight: f64,
 
     #[arg(short, long, default_value = "eukrep-majority")]
@@ -181,7 +130,14 @@ struct Cli {
     compleasm_db_name: String,
 
     #[arg(long)]
-    checkm2_db_path: String
+    checkm2_db_path: String,
+
+    #[arg(short, long, default_value = "0.5")]
+    max_jaccard_distance: f64,
+
+    #[arg(short, long, default_value = "0.5")]
+    max_euclidean_distance: f64,
+
 
 
 }
@@ -276,53 +232,6 @@ mod tests {
     }
 
 
-
-
-/* 
-    #[test]
-    fn full_test_skip_initial_checks() {
-        let (temp_initial_bin_directory, temp_results_dir, hash_dir) = prepare_initial_data_for_full_test(true);
-        let bin_generator = BinGenerator::initialise_bin_gen(Some(CHECKM2_DB_PATH.to_path_buf()), Some(COMPLEASM_DB_LIB.to_path_buf()), hash_dir.clone(), 100.0, 0.0);
-        let bin_gen_arc = Arc::new(bin_generator);
-        setup_logger(&&temp_results_dir.join("output_log.txt")).expect("Failed to setup logger");
-        rayon::ThreadPoolBuilder::new().num_threads(5).build_global().unwrap();
-
-        let (bins, contigs) = run_initial_bin_gen_module_test(&temp_initial_bin_directory);
-
-
-    }
-
-
-    fn prepare_initial_data_for_full_test(skip_initial_quality_check: bool) -> (PathBuf, PathBuf, PathBuf) {
-        let temp_dir_for_test = FULL_TEST_DIR.join("temp_full_test_run/");
-        let temp_results_dir = temp_dir_for_test.join("results/");
-        let hash_dir = temp_dir_for_test.join("hash_results/");
-        let temp_initial_bin_directory = temp_dir_for_test.join("full_test_initial_bins/");
-        if skip_initial_quality_check == false {
-            if temp_dir_for_test.is_dir() {
-            fs::remove_dir_all(&temp_dir_for_test).unwrap();
-            }
-            let options = CopyOptions::new();
-            fs::create_dir(&temp_dir_for_test);
-            fs_extra::dir::copy(FULL_TEST_DIR.join("full_test_initial_bins/"), &temp_dir_for_test, &options).unwrap();
-
-
-            fs::create_dir(&temp_results_dir);
-            fs::create_dir(&hash_dir);
-
-
-            fs::create_dir(&temp_initial_bin_directory);
-
-        }
-
-
-
-
-
-        (temp_initial_bin_directory, temp_results_dir, hash_dir)
-    }
-    */
-
     fn run_initial_bin_gen_module_test(contig_file_path: &PathBuf, bin_directory_path: &PathBuf, output_directory_path: &PathBuf, hash_directory_path: &PathBuf) -> (BinGen, Vec<Bin>) {
         let bin_info_storage = BinInfoStorage::initialise_bin_info_storer();
         let (bin_gen, bins) = initialise_tool_through_getting_original_bins_and_contigs(output_directory_path, CHECKM2_DB_PATH.clone().into_os_string().into_string().unwrap(), 
@@ -367,69 +276,4 @@ mod tests {
     
     }
     
-    /* 
-
-    fn run_clustering_module_test(results_directory: &PathBuf, bins: Vec<Bin>, contigs: Vec<Arc<Contig>>, arc_bin_gen: Arc<BinGenerator>) -> Vec<(Vec<Arc<Contig>>, String, f64, f64)> {
-        if results_directory.join("cluster_output/").is_dir() {
-            fs::remove_dir_all(&results_directory.join("cluster_output/")).unwrap();
-        }
-        println!("{}", results_directory.to_string_lossy());
-        let generated_bins = run_bin_clustering_module_to_generate_all_potential_bins(results_directory, bins, contigs, arc_bin_gen);
-        let expected_cluster_file_path = &results_directory.join("cluster_output/output_cluster_file_path.tsv");
-        assert!(&expected_cluster_file_path.is_file());
-        let cluster_results = fs::read_to_string(expected_cluster_file_path).expect("Unable to read file");
-        let expected_filtered_cluster_results = fs::read_to_string(&results_directory.join("cluster_output/output_cluster_file_eukaryotes_and_prokaryotes_split.tsv")).expect("unable to read euk prok filtered file");
-        assert!(expected_cluster_file_path.is_file());
-        let mut unique_ids = Vec::new();
-        for res in expected_filtered_cluster_results.lines().skip(1) {
-            let res_vec: Vec<&str> = res.split("\t").collect();
-
-            println!("{}", &res);
-            if !unique_ids.contains(&res_vec[1]) {
-                unique_ids.push(&res_vec[1]);
-            }
-        }
-        assert_eq!(unique_ids.len(), 3);
-        generated_bins
-    }
-
-
-    fn run_graphing_module_test(results_directory: &PathBuf, bins: Vec<Bin>, contigs: Vec<Arc<Contig>>, arc_bin_gen: Arc<BinGenerator>) -> Vec<(Vec<Arc<Contig>>, String, f64, f64)>{
-       let produced_bins = run_graph_clustering(bins, arc_bin_gen, 0.5);
-       produced_bins
-    }
-    fn run_best_bin_classic_test(contig_sets: Vec<(Vec<Arc<Contig>>, String, f64, f64)>, bin_gen_arc: Arc<BinGenerator>, hash_directory: &PathBuf, results_directory: &PathBuf) -> BinSet {
-
-        let bin_scorer = BinScorer { contamination_weight: 0.5, completion_weight: 0.5, scoring_approach: BinSetScore::CompContWeighted, evo_completion_scale_power: 1.0, evo_contamination_scale_power: 1.0};
-        let best_bins = run_classic_best_bin_module(contig_sets, bin_gen_arc, &bin_scorer);
-        let total_contigs_used = 0;
-        let best_bin_result_dir_path = PathBuf::from(results_directory).join("best_bins/");
-        if best_bin_result_dir_path.is_dir() {
-            fs::remove_dir_all(&best_bin_result_dir_path);
-        }
-        best_bins.create_best_bin_dir_and_info_from_best_hashes(hash_directory, &best_bin_result_dir_path, true);
-        let files_in_best_bin_dir: Vec<DirEntry> = best_bin_result_dir_path.read_dir().unwrap().filter_map(|x| x.ok()).collect();
-        assert_eq!(files_in_best_bin_dir.len(), 4);
-        let best_bin_file_path = best_bin_result_dir_path.join("best_bins_information.tsv");
-        let best_bin_info_results = fs::read_to_string(best_bin_file_path).expect("Unable to read best bin file");
-        assert_eq!(best_bin_info_results.lines().collect::<Vec<&str>>().len(), 4);
-        best_bins
-    }
-
-
-    fn create_test_evo_alg_runner(contig_sets: Vec<(Vec<Arc<Contig>>, String, f64, f64)>) -> evo_alg_gen_tracking::EvoAlgRunner {
-        let test_potential_bins: Vec<Vec<Arc<Contig>>> = contig_sets.into_iter().map(|x| x.0).collect();
-        initialise_evolutionary_alg_structs(5.0, test_potential_bins, 10.0, 6, 10, "nsgaII".to_string())
-    }
-
-
-    fn run_evo_alg_test(contig_sets: Vec<(Vec<Arc<Contig>>, String, f64, f64)>, bin_gen_arc: Arc<BinGenerator>, hash_directory: &PathBuf, results_directory: &PathBuf) {
-
-        let mutation_val = 1.0;
-        let bin_scorer_arc = Arc::new(BinScorer { contamination_weight: 0.5, completion_weight: 0.5, scoring_approach: BinSetScore::CompContWeighted, evo_completion_scale_power: 1.0, evo_contamination_scale_power: 1.0});
-        let mut evo_alg_runner = create_test_evo_alg_runner(contig_sets);
-        run_evolutionary_alg(bin_gen_arc, bin_scorer_arc, results_directory, hash_directory, evo_alg_runner);
-
-    }
-*/ 
 }

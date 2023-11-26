@@ -35,33 +35,19 @@ impl Contig {
     
     }
 
-    pub fn get_kmer_frequences(&self, length_of_kmers: usize) -> HashMap<String, i32>{
-        let mut kmer_hashmap = HashMap::new();
-        let mut current_kmer = String::new();
-        for nt in self.sequence.chars() {
-            current_kmer.push(nt);
-            
-            if current_kmer.len() == length_of_kmers {
-                match kmer_hashmap.get(&current_kmer) {
-                    
-                    Some(res) => {
-                    
-                        let new_count = res + 1;
-                        kmer_hashmap.insert(current_kmer, new_count);
-                    
-                    }
-                    
-                    None => {
-                    
-                        kmer_hashmap.insert(current_kmer, 1);
-                    
-                    }
-                }
-                current_kmer = String::new();  
-            
+    pub fn get_kmers(&self, length_of_kmers: usize) -> Vec<String>{
+        let mut kmer_vec = Vec::new();
+        
+        for (count, _) in self.sequence.chars().enumerate() {
+            if count + length_of_kmers > self.sequence.len() {
+                break
             }
-        }
-        kmer_hashmap
+            let kmer = &self.sequence[count..(count + length_of_kmers)];
+            kmer_vec.push(kmer.to_string());
+
+            }
+        
+        kmer_vec
     
     }
 

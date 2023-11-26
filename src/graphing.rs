@@ -16,41 +16,50 @@ use crate::bin_sets::BinSet;
 use crate::contigs::Contig;
 
 
-pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, minimum_similarity: f64, cluster_output_directory: PathBuf)  -> Vec<(Vec<Arc<Contig>>, String, f64, f64)>{
+pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, max_jaccard_distance: f64, max_euclidean_distance: f64, cluster_output_directory: PathBuf)  -> BinSet {
     
-    let unique_bins = ClusteringPrep::remove_duplicate_bins(the_bins);
-    let connected_bins = ClusteringPrep::get_bins_with_minimum_similarity_jaccard_shared(&unique_bins, minimum_similarity);
-    let bin_distance_graph = BinDistanceGraph::generate_graph(unique_bins.clone(), connected_bins);
+    let initial_unique_bins = ClusteringPrep::remove_duplicate_bins(the_bins);
+    let connected_bins = ClusteringPrep::get_bin_pairs_with_less_than_max_jaccard_distance(&initial_unique_bins, max_jaccard_distance);
+    let bin_distance_graph = BinDistanceGraph::generate_graph(initial_unique_bins.clone(), connected_bins);
     let new_bin_finder = NewBinFinder{};
     let arc_bin_graph = Arc::new(bin_distance_graph);
     let successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
     let all_successful_bins = successful_bins.into_iter().collect_vec();
     let mut all_bins_as_bins: Vec<Bin> = all_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
-    info!("Graph clustering successfully generated {} hybrid bins from {} unique bins", all_bins_as_bins.len(), unique_bins.len());
+    info!("Graph clustering successfully generated {} hybrid bins from {} unique bins", all_bins_as_bins.len(), initial_unique_bins.len());
 
-//    let eukaryotic_bins = all_bins_as_bins.iter()
- //       .filter(|bin| bin.bin_type == BinType::eukaryote).map(|bin| bin.clone()).collect_vec();
-    
-  //  let all_eukaryotic_bin_pairs = ClusteringPrep::get_all_eukaryotic_bin_pairs(&eukaryotic_bins);
-   // let bin_distance_graph = BinDistanceGraph::generate_graph(eukaryotic_bins.clone(), all_eukaryotic_bin_pairs);
-  //  let new_bin_finder = NewBinFinder{};
-   // let arc_bin_graph = Arc::new(bin_distance_graph);
-   // let euk_successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
-   // let all_euk_successful_bins: Vec<Bin> = euk_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
-   // all_bins_as_bins.extend(all_euk_successful_bins);
+
 
     let all_extended_unique_bins = ClusteringPrep::remove_duplicate_bins(all_bins_as_bins).into_iter().map(|bin| Arc::new(bin)).collect_vec();
     let bin_set_of_bins_produced_by_clustering = BinSet::make_bin_set_from_bins_vec(all_extended_unique_bins);
     bin_set_of_bins_produced_by_clustering.create_bin_set_dir_and_info_from_best_hashes(&bin_generator.hash_directory, &cluster_output_directory, false);
-    let all_bins_by_information = bin_set_of_bins_produced_by_clustering.bins.iter()
-        .map(|bin| (bin.bin_contigs.clone(), bin.bin_hash.clone(), bin.completeness.clone(), bin.contamination.clone())).collect_vec();
-
-   // let connected_routes = new_bin_finder.find_connected_routes(&bin_distance_graph);
-    // let all_successful_bins = new_bin_finder.test_each_connected_route(bin_distance_graph, connected_routes, bin_generator);
-    info!("Graph clustering additional eukaryotic stage: successfully generated {} hybrid bins from {} unique bins", all_bins_by_information.len(), unique_bins.len());
-    info!("Graph clustering stage complete!");
-    all_bins_by_information
+    bin_set_of_bins_produced_by_clustering
  
+}
+
+
+fn run_additional_eukaryotic_clustering_stage(bins: Vec<Bin>, bin_generator: Arc<BinGen>, max_euclidean_distance: f64, cluster_output_directory: PathBuf) -> BinSet{
+    
+    let eukaryotic_bins = bins.iter()
+        .filter(|bin| bin.bin_type == BinType::eukaryote)
+        .map(|bin| bin.clone())
+        .collect_vec();
+
+    let all_eukaryotic_bin_pairs = ClusteringPrep::get_euk_bin_pairs_with_less_than_max_euclidean_distance(&eukaryotic_bins, 4, max_euclidean_distance);
+    info!("Identified {} pairs with minimum_distance", all_eukaryotic_bin_pairs.len());
+    let bin_distance_graph = BinDistanceGraph::generate_graph(eukaryotic_bins.clone(), all_eukaryotic_bin_pairs);
+    let new_bin_finder = NewBinFinder{};
+    let arc_bin_graph = Arc::new(bin_distance_graph);
+    let euk_successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
+    let all_euk_successful_bins: Vec<Bin> = euk_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
+    let unique_euk_bins = ClusteringPrep::remove_duplicate_bins(all_euk_successful_bins).into_iter().map(|bin| Arc::new(bin)).collect_vec();
+    let bin_set_of_bins_produced_by_clustering = BinSet::make_bin_set_from_bins_vec(unique_euk_bins);
+
+    bin_set_of_bins_produced_by_clustering.create_bin_set_dir_and_info_from_best_hashes(&bin_generator.hash_directory, &cluster_output_directory, false);
+    info!("Graph clustering additional eukaryotic stage: successfully generated {} hybrid bins from {} eukaryotic bins", bin_set_of_bins_produced_by_clustering.bins.len(), eukaryotic_bins.len());
+    info!("Graph clustering stage complete!");
+    bin_set_of_bins_produced_by_clustering
+
 }
 struct ClusteringPrep;
 
@@ -70,63 +79,13 @@ impl ClusteringPrep {
         }
         unique_bins
     }
-/* 
-    fn get_all_bin_pairs<'a>(bins: &'a Vec<Bin>, minimum_similarity: f64) -> Vec<(&'a Bin, &'a Bin)> {
-        let eukaryotic_bins = bins.iter()
-            .filter(|bin| bin.bin_type == BinType::eukaryote).collect_vec();
-        
-        let eukaryotic_bin_combinations = ClusteringPrep::get_all_eukaryotic_bin_pairs(bins);
-        let prokaryotic_bins = bins.iter().filter(|bin| bin.bin_type == BinType::prokaryote).collect_vec();
-        let prokaryotic_bin_combinations = ClusteringPrep::get_bins_with_minimum_similarity_jaccard_shared(bins, minimum_similarity)
 
-
-    } */
-    fn get_all_eukaryotic_bin_pairs<'a>(bins: &'a Vec<Bin>) -> Vec<(&'a Bin, &'a Bin)> {
-
-        let all_potential_eukaryotic_bin_pairs: Vec<(&'a Bin, &'a Bin)> = bins.into_iter()
-            .combinations(2)
-            .filter_map(|bin_combination| ClusteringPrep::check_whether_pair_might_improve(bin_combination[0], bin_combination[1]))
-            .collect();
-        
-        all_potential_eukaryotic_bin_pairs
-    }
-    fn check_whether_pair_might_improve<'a>(bin_1: &'a Bin, bin_2: &'a Bin) -> Option<(&'a Bin, &'a Bin)> { 
-        let bin_1_contigs = bin_1.bin_contigs.iter().collect_vec();
-        let bin_2_contigs = bin_2.bin_contigs.iter().collect_vec();
-        
-        let mut bin_1_unique_contig_markers: HashSet<String> = bin_1_contigs.iter() // markers that are in contigs that only bin 1 has
-            .filter(|contig| !bin_2_contigs.contains(contig))
-            .filter_map(|contig| contig.eukaryotic_contig_info.clone())
-            .map(|contig_euk_info| contig_euk_info.complete_buscos)
-            .flatten().collect();
-
-        let mut bin_2_unique_contig_markers: HashSet<String> = bin_2_contigs.iter() // markers that are in contigs that only bin 1 has
-            .filter(|contig| !bin_1_contigs.contains(contig))
-            .filter_map(|contig| contig.eukaryotic_contig_info.clone())
-            .map(|contig_euk_info| contig_euk_info.complete_buscos)
-            .flatten().collect();
-        // logic here is it checks if combining the contigs unique to each bin will result in an increase in unique markers (unique meaning increased completeness)
-        let combined_bin_1_2_unique_markers: HashSet<&String> = bin_1_unique_contig_markers.iter().chain(bin_2_unique_contig_markers.iter()).collect();
-        if (combined_bin_1_2_unique_markers.len() > bin_1_unique_contig_markers.len()) & (combined_bin_1_2_unique_markers.len() > bin_2_unique_contig_markers.len()) {
-            Some((bin_1, bin_2))
-        } else {
-            None
-        }
-
-
-        // let bin_1_eukaryotic_markers = bin_1.bin_contigs.iter()
-        //    .filter_map(|contig| contig.eukaryotic_contig_info.clone())
-         //   .map(|euk_contig_info| euk_contig_info.complete_buscos)
-         //   .collect_vec();
-    }
-
-
-    fn get_bins_with_minimum_similarity_jaccard_shared<'a>(bins: &'a Vec<Bin>, minimum_similarity: f64) -> Vec<(&'a Bin, &'a Bin)>{
+    fn get_bin_pairs_with_less_than_max_jaccard_distance<'a>(bins: &'a Vec<Bin>, max_distance: f64) -> Vec<(&'a Bin, &'a Bin)>{
         let mut bins_with_minimum_similarity = Vec::new();
         let all_potential_bin_pairs: Vec<Vec<&'a Bin>> = bins.into_iter().combinations(2).collect();
         for bin_pair in all_potential_bin_pairs {
 
-            if ClusteringPrep::calc_jaccard_similarity(bin_pair[0], bin_pair[1]) > minimum_similarity {
+            if ClusteringPrep::calc_jaccard_distance(bin_pair[0], bin_pair[1]) < max_distance {
 
                     bins_with_minimum_similarity.push((bin_pair[0], bin_pair[1]));
 
@@ -136,7 +95,7 @@ impl ClusteringPrep {
         bins_with_minimum_similarity
     }
 
-    fn calc_jaccard_similarity(bin_1: &Bin, bin_2: &Bin) -> f64 {
+    fn calc_jaccard_distance(bin_1: &Bin, bin_2: &Bin) -> f64 {
         let bin_1_contigs = bin_1.bin_contigs.clone();
         let bin_2_contigs = bin_2.bin_contigs.clone();
 
@@ -150,8 +109,64 @@ impl ClusteringPrep {
             return 0.0;
         }
 
-        intersection_size as f64 / union_size as f64
+        1.0 - (intersection_size as f64 / union_size as f64)
     }
+
+    fn get_euk_bin_pairs_with_less_than_max_euclidean_distance<'a>(bins: &'a [Bin], kmer_size: usize, max_euclidean_distance: f64) -> Vec<(&'a Bin, &'a Bin)>{
+        let mut all_potential_bin_pairs: Vec<(&Bin, &Bin)> = bins.into_iter()
+            .combinations(2).map(|bin_combo| (bin_combo[0], bin_combo[1])).collect();
+        let mut pair_euclidean_hashmap = HashMap::new();
+        let first_bin_pair_dist =  ClusteringPrep::calculate_euclidean_distance_between_bin_pair(all_potential_bin_pairs[0].0, all_potential_bin_pairs[0].1, kmer_size);
+        let mut max_dist = first_bin_pair_dist;
+        let mut min_dist = first_bin_pair_dist;
+        all_potential_bin_pairs.remove(0);
+
+        for bin_pair in all_potential_bin_pairs {
+            
+            let euclidean_distance = ClusteringPrep::calculate_euclidean_distance_between_bin_pair(bin_pair.0, bin_pair.1, kmer_size);
+            pair_euclidean_hashmap.insert(bin_pair, euclidean_distance);
+            
+            if max_dist < euclidean_distance {
+            
+                max_dist = euclidean_distance;
+            
+            }
+            
+            if min_dist > euclidean_distance {
+            
+                min_dist = euclidean_distance;
+            
+            }
+        
+        }
+        let mut viable_bin_pairs = Vec::new();
+        for (bin_pair, euclid_dist) in pair_euclidean_hashmap {
+            let min_max_normalised_distance = (euclid_dist - min_dist) / (max_dist - min_dist);
+            if min_max_normalised_distance < max_euclidean_distance {
+                viable_bin_pairs.push(bin_pair);
+            }
+        }
+        viable_bin_pairs
+
+    }
+
+    fn calculate_euclidean_distance_between_bin_pair(bin_1: &Bin, bin_2: &Bin, kmer_size: usize) -> f64 {
+        let bin_1_kmers = bin_1.get_all_bin_kmers(kmer_size);
+        let bin_2_kmers = bin_2.get_all_bin_kmers(kmer_size);
+        let all_unique_kmers = bin_1_kmers.iter().chain(bin_2_kmers.iter()).unique().collect_vec();
+        let mut sum_of_squared_differences = 0.0;
+        for unique_kmer in all_unique_kmers {
+            let bin_1_num = bin_1_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
+            let bin_2_num = bin_2_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
+            let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num) ^ 2) as f64;
+            sum_of_squared_differences = sum_of_squared_differences + squared_kmer_diff;
+        }
+        sum_of_squared_differences.sqrt()
+
+    }
+
+
+    
 
 
 }
@@ -229,6 +244,7 @@ impl NewBinFinder {
 
 
     fn test_node_potential_bins(&self, bin_distance_graph: &BinDistanceGraph, current_bin_nodes: Vec<&NodeIndex>, bin_generator: &Arc<BinGen>, current_bin_quality: (f64, f64), successful_bins: &mut Vec<Vec<Arc<Contig>>>) {
+        
         let current_bin_test_node = current_bin_nodes[current_bin_nodes.len() - 1];
         let neighbor_nodes: Vec<NodeIndex> = bin_distance_graph.the_graph.neighbors_undirected(current_bin_test_node.clone())
             .filter(|neighbor_node| !current_bin_nodes.contains(&neighbor_node)).collect();
@@ -250,7 +266,7 @@ impl NewBinFinder {
 
             match bin_generator.generate_new_bin_from_contigs(intersection_contigs.clone()) {
                 Some(bin_res) => {
-                    if bin_res.completeness > current_bin_quality.0 || bin_res.contamination < current_bin_quality.1 {
+                    if self.check_if_improvement_conditions_met(&current_bin_quality, &(bin_res.completeness, bin_res.contamination)) {
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
                         successful_bins.push(intersection_contigs);
@@ -265,7 +281,7 @@ impl NewBinFinder {
 
             match bin_generator.generate_new_bin_from_contigs(union_contigs.clone()) {
                 Some(bin_res) => {
-                    if bin_res.completeness > current_bin_quality.0 || bin_res.contamination < current_bin_quality.1 {
+                    if self.check_if_improvement_conditions_met(&current_bin_quality, &(bin_res.completeness, bin_res.contamination)) {
 
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
@@ -278,6 +294,14 @@ impl NewBinFinder {
 
         }
 
+    }
+    fn check_if_improvement_conditions_met(&self, current_bin_quality: &(f64, f64), new_potential_bin_quality: &(f64, f64)) -> bool {
+        
+        let change_in_completeness = new_potential_bin_quality.0 - current_bin_quality.0;
+        let change_in_contamination = new_potential_bin_quality.0 - current_bin_quality.1;
+        change_in_completeness >= change_in_contamination
+
+        
     }
 
 
