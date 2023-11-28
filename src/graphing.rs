@@ -159,7 +159,9 @@ impl ClusteringPrep {
             let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num) ^ 2) as f64;
             sum_of_squared_differences = sum_of_squared_differences + squared_kmer_diff;
         }
-        sum_of_squared_differences.sqrt()
+        let euclidean_distance = sum_of_squared_differences.sqrt();
+        debug!("Calculated euclidean distance as: {}", euclidean_distance);
+        euclidean_distance
 
     }
 
