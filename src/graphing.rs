@@ -1,9 +1,10 @@
 
 use itertools::Itertools;
-use log::info;
+use log::{info, debug};
 use petgraph::graph::Node;
 use petgraph::visit::NodeRef;
 use petgraph::{stable_graph::NodeIndex, visit::Bfs};
+use rayon::iter::IndexedParallelIterator;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator, IntoParallelRefIterator};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -115,35 +116,22 @@ impl ClusteringPrep {
     fn get_euk_bin_pairs_with_less_than_max_euclidean_distance<'a>(bins: &'a [Bin], kmer_size: usize, max_euclidean_distance: f64) -> Vec<(&'a Bin, &'a Bin)>{
         let mut all_potential_bin_pairs: Vec<(&Bin, &Bin)> = bins.into_iter()
             .combinations(2).map(|bin_combo| (bin_combo[0], bin_combo[1])).collect();
-        let mut pair_euclidean_hashmap = HashMap::new();
-        let first_bin_pair_dist =  ClusteringPrep::calculate_euclidean_distance_between_bin_pair(all_potential_bin_pairs[0].0, all_potential_bin_pairs[0].1, kmer_size);
-        let mut max_dist = first_bin_pair_dist;
-        let mut min_dist = first_bin_pair_dist;
-        all_potential_bin_pairs.remove(0);
 
-        for bin_pair in all_potential_bin_pairs {
-            
-            let euclidean_distance = ClusteringPrep::calculate_euclidean_distance_between_bin_pair(bin_pair.0, bin_pair.1, kmer_size);
-            pair_euclidean_hashmap.insert(bin_pair, euclidean_distance);
-            
-            if max_dist < euclidean_distance {
-            
-                max_dist = euclidean_distance;
-            
-            }
-            
-            if min_dist > euclidean_distance {
-            
-                min_dist = euclidean_distance;
-            
-            }
-        
-        }
+        let all_euclidean_pairing_result_sorted: Vec<((&&Bin, &&Bin), f64)> = all_potential_bin_pairs
+            .par_iter()
+            .map(|(bin_1, bin_2)| ((bin_1, bin_2), ClusteringPrep::calculate_euclidean_distance_between_bin_pair(bin_1, bin_2, kmer_size)))
+            .collect::<Vec<_>>() // Collect into a vector first
+            .into_iter()
+            .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap()) // Sort the vector by the second item of the tuple
+            .collect(); // Finally, collect into a HashMap
+        let max_dist = all_euclidean_pairing_result_sorted[0].1;
+        let min_dist = all_euclidean_pairing_result_sorted[all_euclidean_pairing_result_sorted.len()].1;
+
         let mut viable_bin_pairs = Vec::new();
-        for (bin_pair, euclid_dist) in pair_euclidean_hashmap {
+        for (bin_pair, euclid_dist) in all_euclidean_pairing_result_sorted {
             let min_max_normalised_distance = (euclid_dist - min_dist) / (max_dist - min_dist);
             if min_max_normalised_distance < max_euclidean_distance {
-                viable_bin_pairs.push(bin_pair);
+                viable_bin_pairs.push((*bin_pair.0, *bin_pair.1));
             }
         }
         viable_bin_pairs
@@ -152,6 +140,7 @@ impl ClusteringPrep {
 
     fn calculate_euclidean_distance_between_bin_pair(bin_1: &Bin, bin_2: &Bin, kmer_size: usize) -> f64 {
         // uses tetranucleotide frequency ratio (as a means to normalise contig sizes)
+        debug!("Calculating euclidean distance for bin pair!");
         let bin_1_kmers = bin_1.get_all_bin_kmers(kmer_size);
         let bin_2_kmers = bin_2.get_all_bin_kmers(kmer_size);
         let all_unique_kmers = bin_1_kmers.iter().chain(bin_2_kmers.iter()).unique().collect_vec();
