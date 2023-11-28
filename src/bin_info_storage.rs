@@ -86,8 +86,10 @@ pub struct Bin {
 }
 
 impl Bin {
-    pub fn get_all_bin_kmers(&self, kmer_size: usize) -> Vec<String> {
-        self.bin_contigs.iter().map(|contig| contig.get_kmers(kmer_size)).flatten().collect_vec()
+    pub fn get_all_bin_kmers(&self, kmer_size: usize) -> Vec<&Vec<String>> {
+        self.bin_contigs.iter()
+        .map(|contig| contig.kmers.as_ref().unwrap()) // unwrap the Option
+        .collect()
     }
 }
 

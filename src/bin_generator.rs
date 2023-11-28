@@ -290,14 +290,16 @@ mod tests {
             sequence: "na".to_string(),
             prokaryotic_contig_info: None,
             eukaryotic_contig_info: Some(EukaryoticContigInformation {complete_buscos: vec!["779909at2759".to_string()]}),
-            prok_or_euk: Some(ContigType::Eukaryote)
+            prok_or_euk: Some(ContigType::Eukaryote),
+            kmers: None
         }));
         contig_vec.push(Arc::new(Contig {
             header: "na".to_string(),
             sequence: "na".to_string(),
             prokaryotic_contig_info: None,
             eukaryotic_contig_info: Some(EukaryoticContigInformation {complete_buscos: vec!["290630at2759".to_string(), "290630at2759".to_string()]}), // duplicates so should only count once
-            prok_or_euk: Some(ContigType::Eukaryote)
+            prok_or_euk: Some(ContigType::Eukaryote),
+            kmers: None
         }));
 
         contig_vec.push(Arc::new(Contig {
@@ -305,7 +307,8 @@ mod tests {
             sequence: "na".to_string(),
             prokaryotic_contig_info: None,
             eukaryotic_contig_info: Some(EukaryoticContigInformation {complete_buscos: vec!["290630at2759".to_string(), "290630at2759".to_string()]}), // duplicates so should only count once
-            prok_or_euk: Some(ContigType::Prokaryote)
+            prok_or_euk: Some(ContigType::Prokaryote),
+            kmers: None
         }));
 
 

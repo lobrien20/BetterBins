@@ -8,7 +8,8 @@ pub struct Contig {
     pub sequence: String,
     pub prokaryotic_contig_info: Option<ProkaryoticContigInformation>,
     pub eukaryotic_contig_info: Option<EukaryoticContigInformation>,
-    pub prok_or_euk: Option<ContigType>
+    pub prok_or_euk: Option<ContigType>,
+    pub kmers: Option<Vec<String>>
 }
 
 impl Contig {
@@ -19,7 +20,8 @@ impl Contig {
             sequence: sequence_add,
             prokaryotic_contig_info: None,
             eukaryotic_contig_info: None,
-            prok_or_euk: None
+            prok_or_euk: None,
+            kmers: None
         }
     }
     
@@ -48,6 +50,22 @@ impl Contig {
             }
         
         kmer_vec
+    
+    }
+
+    pub fn add_kmers(&mut self, length_of_kmers: usize) {
+        let mut kmer_vec = Vec::new();
+        
+        for (count, _) in self.sequence.chars().enumerate() {
+            if count + length_of_kmers > self.sequence.len() {
+                break
+            }
+            let kmer = &self.sequence[count..(count + length_of_kmers)];
+            kmer_vec.push(kmer.to_string());
+
+            }
+        
+        self.kmers = Some(kmer_vec); 
     
     }
 
