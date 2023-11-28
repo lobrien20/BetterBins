@@ -159,7 +159,6 @@ fn calculate_nucleotide_distance_variance_at_bin_level(vec_of_contig_kmer_hashma
 
 
 
-
 fn calculate_kmer_euclidean_distance_between_contigs(contig_1_kmer_frequencies: &HashMap<String, i32>, contig_2_kmer_frequencies: &HashMap<String, i32>) -> f64 {
         
     let all_possible_kmers: Vec<String> = contig_1_kmer_frequencies.clone().into_keys().chain(contig_2_kmer_frequencies.clone().into_keys()).collect();

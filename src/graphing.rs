@@ -38,7 +38,7 @@ pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, max_
 }
 
 
-fn run_additional_eukaryotic_clustering_stage(bins: Vec<Bin>, bin_generator: Arc<BinGen>, max_euclidean_distance: f64, cluster_output_directory: PathBuf) -> BinSet{
+pub fn run_additional_eukaryotic_clustering_stage(bins: &Vec<Bin>, bin_generator: Arc<BinGen>, max_euclidean_distance: f64, cluster_output_directory: PathBuf) -> BinSet{
     
     let eukaryotic_bins = bins.iter()
         .filter(|bin| bin.bin_type == BinType::eukaryote)
@@ -151,13 +151,22 @@ impl ClusteringPrep {
     }
 
     fn calculate_euclidean_distance_between_bin_pair(bin_1: &Bin, bin_2: &Bin, kmer_size: usize) -> f64 {
+        // uses tetranucleotide frequency ratio (as a means to normalise contig sizes)
         let bin_1_kmers = bin_1.get_all_bin_kmers(kmer_size);
         let bin_2_kmers = bin_2.get_all_bin_kmers(kmer_size);
         let all_unique_kmers = bin_1_kmers.iter().chain(bin_2_kmers.iter()).unique().collect_vec();
         let mut sum_of_squared_differences = 0.0;
         for unique_kmer in all_unique_kmers {
-            let bin_1_num = bin_1_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
-            let bin_2_num = bin_2_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
+            
+            let bin_1_num = bin_1_kmers.iter() 
+                .filter(|bin_kmer| &unique_kmer == bin_kmer)
+                .count() / bin_1_kmers.len(); 
+            
+            let bin_2_num = bin_2_kmers.iter()
+                .filter(|bin_kmer| &unique_kmer == bin_kmer)
+                .count() / bin_2_kmers.len();
+
+
             let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num) ^ 2) as f64;
             sum_of_squared_differences = sum_of_squared_differences + squared_kmer_diff;
         }

@@ -11,6 +11,8 @@ use itertools::Itertools;
 use log::{debug, error, info, trace, warn};
 use utils::check_and_remove_bads_in_hash_directory;
 use std::{time::SystemTime, path::PathBuf, sync::Arc, fs, hash};
+
+use crate::graphing::run_additional_eukaryotic_clustering_stage;
 pub mod utils;
 pub mod contigs;
 pub mod classic_best_bin;
@@ -32,7 +34,7 @@ fn main() {
         BinTypePredictionApproach::assume_eukaryote => bin_type_predictor = Box::new(AssumeBinType {assumed_bin_type: BinType::eukaryote}),
         BinTypePredictionApproach::assume_prokaryote => bin_type_predictor = Box::new(AssumeBinType {assumed_bin_type: BinType::prokaryote}),
         BinTypePredictionApproach::eukrep_majority => bin_type_predictor = Box::new(EukRepBasedPredictor{}),
-        BinTypePredictionApproach::minimum_eukaryote_markers => bin_type_predictor = Box::new(MinimumEukMarkerGenes {minimum_marker_gene_count: (args.num_of_compleasm_db_markers / 2)})
+        BinTypePredictionApproach::minimum_eukaryote_markers => bin_type_predictor = Box::new(MinimumEukMarkerGenes {minimum_marker_gene_count: args.min_marker_prediction_minimum_marker_num})
     
     };
 
@@ -57,7 +59,7 @@ fn main() {
     fs::create_dir(&initial_bin_info_dir_path);
     let bin_info_storage = BinInfoStorage::initialise_bin_info_storer();
     let (bin_generator, bins) = initialise_tool_through_getting_original_bins_and_contigs(initial_bin_info_dir_path, args.checkm2_db_path, args.threads, &args.path_to_bin_dir, 
-        args.compleasm_db_dir, args.num_of_compleasm_db_markers, args.compleasm_db_name, &hash_directory, args.max_contamination, 
+        args.compleasm_db_path, &hash_directory, args.max_contamination, 
         args.min_completeness, bin_type_predictor, bin_info_storage);
 
     let bin_scorer = &bin_scoring::BinScorer { contamination_weight: args.contamination_weight, completion_weight: args.completion_weight };
@@ -66,7 +68,21 @@ fn main() {
     if args.run_clustering {
        let cluster_output_directory = args.results_directory.join("cluster_results_directory");
        let bin_set = run_graph_clustering(bins, Arc::clone(&arc_bin_gen), args.max_jaccard_distance, args.max_euclidean_distance, cluster_output_directory);
-       bin_arc_contigs = Some(bin_set.bins.into_iter().map(|bin| bin.bin_contigs.clone()).collect_vec());
+       let eukaryotic_bins = bin_set.bins.iter()
+        .filter(|bin| bin.bin_type == BinType::eukaryote)
+        .map(|bin| Arc::clone(bin)) // Clones the Arc<Bin>
+        .map(|arc_bin| (*arc_bin).clone()) // Clones the inner Bin
+        .collect_vec();
+       if eukaryotic_bins.len() > 0 {
+			let eukaryotic_cluster_output_directory = args.results_directory.join("extra_eukaryotic_clustering_results_directory");
+			let new_bin_set = run_additional_eukaryotic_clustering_stage(&eukaryotic_bins, Arc::clone(&arc_bin_gen), args.max_euclidean_distance, eukaryotic_cluster_output_directory);
+			bin_arc_contigs = Some(new_bin_set.bins.into_iter().map(|bin| bin.bin_contigs.clone()).collect_vec());
+
+       } else {
+    		bin_arc_contigs = Some(bin_set.bins.into_iter().map(|bin| bin.bin_contigs.clone()).collect_vec());
+       }
+       
+
     } else {
         bin_arc_contigs = Some(bins.into_iter().map(|bin| bin.bin_contigs).collect_vec());
     }
@@ -83,18 +99,12 @@ fn main() {
 
 #[derive(Debug, Parser)] // requires `derive` feature
 #[command(name = "BetterBins")]
-#[command(about = "BetterBins bin analyser", long_about = None)]
+#[command(about = "BetterBins bin refinement tool", long_about = None)]
 struct Cli {
     
 
-    #[arg(short, long)]
-    contigs_file_path: PathBuf,
-
     #[arg(short, long, default_value = "1")]
     threads: usize,
-
-    #[arg(long, default_value = "255")]
-    num_of_compleasm_db_markers: usize,
 
     #[arg(short, long)]
     path_to_bin_dir: PathBuf,
@@ -124,10 +134,7 @@ struct Cli {
     prediction_approach: BinTypePredictionApproach,
 
     #[arg(long)]
-    compleasm_db_dir: String,
-    
-    #[arg(long, default_value = "eukaryota_odb10")]
-    compleasm_db_name: String,
+    compleasm_db_path: String,
 
     #[arg(long)]
     checkm2_db_path: String,
@@ -137,6 +144,9 @@ struct Cli {
 
     #[arg(short, long, default_value = "0.5")]
     max_euclidean_distance: f64,
+
+    #[arg(short, long, default_value = "123")]
+    min_marker_prediction_minimum_marker_num: usize
 
 
 
@@ -207,7 +217,7 @@ mod tests {
         static ref FULL_TEST_DIR: PathBuf = PathBuf::from("tests/new_tests/full_scale_test/");
     }
     lazy_static! { // unit test will only work if database is added here, not uploaded to git repo due to size
-        static ref COMPLEASM_DB_LIB: PathBuf = PathBuf::from("tests/new_tests/databases_for_testing/");
+        static ref COMPLEASM_DB_LIB: String ="tests/new_tests/databases_for_testing/eukaryota_odb10/".to_string();
     }
     lazy_static! { // unit test will only work if database is added here, not uploaded to git repo due to size
 
@@ -236,8 +246,8 @@ mod tests {
         let bin_info_storage = BinInfoStorage::initialise_bin_info_storer();
         let (bin_gen, bins) = initialise_tool_through_getting_original_bins_and_contigs(output_directory_path, CHECKM2_DB_PATH.clone().into_os_string().into_string().unwrap(), 
             6, bin_directory_path,
-            COMPLEASM_DB_LIB.clone().into_os_string().into_string().unwrap(), 
-            255, "eukaryota_odb10".to_string(), hash_directory_path, 
+            COMPLEASM_DB_LIB.to_string(), 
+            hash_directory_path, 
             100.0, 0.0, Box::new(EukRepBasedPredictor{}),
             bin_info_storage);
 
@@ -269,7 +279,7 @@ mod tests {
         let files_in_best_bin_dir: Vec<DirEntry> = classic_best_bin_test_res_dir.read_dir().unwrap().filter_map(|x| x.ok()).collect();
         
         assert_eq!(files_in_best_bin_dir.len(), 4);
-        let best_bin_file_path = classic_best_bin_test_res_dir.join("best_bins_information.tsv");
+        let best_bin_file_path = classic_best_bin_test_res_dir.join("bin_set_information.tsv");
         let best_bin_info_results = fs::read_to_string(best_bin_file_path).expect("Unable to read best bin file");
         assert_eq!(best_bin_info_results.lines().collect::<Vec<&str>>().len(), 4);
         

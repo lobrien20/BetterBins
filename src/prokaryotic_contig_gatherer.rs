@@ -13,6 +13,7 @@ pub struct ProkaryoticBinQualityGetter {
 
 impl ProkaryoticBinQualityGetter {
     pub fn initialise(checkm2_db_path_str: &str) -> ProkaryoticBinQualityGetter {
+        ProkaryoticBinQualityGetter::check_checkm2_database_path_exists(checkm2_db_path_str);
         ProkaryoticBinQualityGetter { checkm2_db_path: PathBuf::from(checkm2_db_path_str) }
     }
 
@@ -22,6 +23,41 @@ impl ProkaryoticBinQualityGetter {
             self.checkm2_db_path.to_str().unwrap(), threads).unwrap();
         
         ProkaryoticBinQualityGetter::add_prokaryotic_orf_info_to_contigs(all_contigs, diamond_and_protein_paths);
+    }
+
+    fn check_checkm2_database_path_exists(checkm2_db_path_str: &str) {
+        
+        let checkm2_db_pathbuf = PathBuf::from(checkm2_db_path_str);
+        
+        if !checkm2_db_pathbuf.is_file() {
+            
+            panic!("Error - could not find checkm2 database file - exiting!");
+        
+        }
+    }
+
+    fn download_checkm2_database(directory_path_to_download_checkm2_db: &str) -> Result<PathBuf, String> {
+        let mut checkm2_args = vec!["database", "--download", "--path", directory_path_to_download_checkm2_db];
+
+        let status = Command::new("checkm2")
+        .args(checkm2_args)
+        .status()
+        .map_err(|e| format!("Failed to execute checkm2 download: {}", e))?;
+
+        if status.success() {
+            let checkm2_db_pathbuf = PathBuf::from(directory_path_to_download_checkm2_db).join("CheckM2_database/uniref100.KO.1.diamond");
+            
+            if checkm2_db_pathbuf.is_file() {
+                Ok(checkm2_db_pathbuf)
+            } else {
+                Err(format!("Error - Checkm2 database download seemed to work but database not found."))
+            }
+
+        } else {
+
+            Err(format!("BAD: {}", status))
+
+        }
     }
     
     fn run_quality_check_for_all_contigs_to_gather_info(contigs_path: &PathBuf, output_directory: &PathBuf, checkm2_db_path_str: &str, threads: usize) -> Result<(PathBuf, PathBuf), String> {

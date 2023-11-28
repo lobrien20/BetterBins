@@ -7,7 +7,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator, IntoParallelIter
 use crate::{contigs::{Contig, ContigType, EukaryoticContigInformation}, prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic_contig_gatherer::EukaryoticBinQualityGetter, contig_type_predictor::ContigTypePredictor, utils::{generate_hash_from_contigs, create_new_fasta_file, create_bin_fasta}, bin_info_storage::{BinType, BinInfoStorage, Bin}, bin_generator::{BinGen, BinTypePrediction, BinGenerator, EukRepBasedPredictor}};
 
 pub fn initialise_tool_through_getting_original_bins_and_contigs(output_directory: &PathBuf, prokaryote_db_path: String, 
-    threads: usize, bin_directory_path: &PathBuf, eukaryota_db_path: String, number_of_markers: usize, compleasm_db_type: String, hash_directory_path: &PathBuf, 
+    threads: usize, bin_directory_path: &PathBuf, eukaryota_db_path: String, hash_directory_path: &PathBuf, 
     maximum_contamination: f64, minimum_completeness: f64, bin_type_predictor: Box<dyn BinTypePrediction>, bin_info_storer: BinInfoStorage) -> (BinGen, Vec<Bin>) {
 
     let fasta_file_paths = find_bin_fastas(&bin_directory_path);
@@ -40,7 +40,7 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(output_director
     }
     if required_contig_information_processing.contains(&"eukaryote".to_string()) {
         info!("Running eukaryote analysis of contigs");
-        let euk_bin_getter = EukaryoticBinQualityGetter::initialise(&eukaryota_db_path, number_of_markers, compleasm_db_type);
+        let euk_bin_getter = EukaryoticBinQualityGetter::initialise(&eukaryota_db_path);
         euk_bin_getter.add_euk_info_to_contigs_using_compleasm(&contig_file_path, &mut all_contigs, output_directory, threads);
         bin_generator.euk_bin_quality_getter = Some(euk_bin_getter);
         info!("Eukaryote analysis of contigs finished!");
@@ -328,7 +328,7 @@ mod tests {
         let (bin_gen, bins) = 
         initialise_tool_through_getting_original_bins_and_contigs(full_initialise_test, CHECKM2_DB_PATH.clone().into_os_string().into_string().unwrap(), 6, &TEST_DATA_DIR, 
             COMPLEASM_DB_LIB.clone().into_os_string().into_string().unwrap(), 
-            255, "eukaryota_odb10".to_string(), hash_dir_path, 
+            hash_dir_path, 
             100.0, 0.0, Box::new(bin_type_predictor), bin_info_storer);
             assert_eq!(bins.len(), 7);
             let mut all_bin_completenesses = bins.iter().map(|bin| bin.completeness).collect_vec();

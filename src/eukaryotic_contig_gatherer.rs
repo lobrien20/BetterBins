@@ -1,4 +1,4 @@
-use std::{path::PathBuf, fs::File, io::{Read, Write}, sync::Arc, process::Command, collections::{HashSet, HashMap}};
+use std::{path::PathBuf, fs::{File, self}, io::{Read, Write}, sync::Arc, process::Command, collections::{HashSet, HashMap}, ffi::OsStr};
 use glob::glob;
 use itertools::Itertools;
 use log::info;
@@ -16,11 +16,32 @@ pub struct EukaryoticBinQualityGetter {
 }
 
 impl EukaryoticBinQualityGetter {
-    pub fn initialise(compleasm_db_lib_path: &str, number_of_markers: usize, compleasm_db: String) -> EukaryoticBinQualityGetter {
-    
-        EukaryoticBinQualityGetter { compleasm_db_lib_path: PathBuf::from(compleasm_db_lib_path), number_of_marker_ids: number_of_markers, compleasm_db: compleasm_db }
+    pub fn initialise(compleasm_db_lib_path: &str) -> EukaryoticBinQualityGetter {
+        let compleasm_db_lib_pathbuf = PathBuf::from(&compleasm_db_lib_path);
+        let compleasm_db_name = PathBuf::from(&compleasm_db_lib_path).file_name().unwrap().to_str().unwrap().to_string();
+
+        let number_of_markers = EukaryoticBinQualityGetter::check_given_compleasm_db_path_for_marker_num(&compleasm_db_lib_pathbuf);
+        info!("Compleasm_db: {}, number_of_markers: {}", &compleasm_db_name, &number_of_markers);
+
+        EukaryoticBinQualityGetter { compleasm_db_lib_path: PathBuf::from(compleasm_db_lib_path), number_of_marker_ids: number_of_markers, 
+            compleasm_db: compleasm_db_name}
 
     }
+    fn check_given_compleasm_db_path_for_marker_num(compleasm_db_lib_path: &PathBuf) -> usize {
+    
+        let compleasm_db_pathbuf = compleasm_db_lib_path.join("hmms/");
+        let hmm_dir = fs::read_dir(compleasm_db_pathbuf).unwrap();
+        let hmm_extension = OsStr::new("hmm");
+        let dir_entries = hmm_dir.map(|dir_entry| dir_entry.unwrap().path()).filter(|path| path.extension() == Some(hmm_extension)).collect_vec();
+        if dir_entries.len() == 0 {
+            panic!("could not find hmms in compleasm db lib path - please make sure to pass the correct path to the database")
+        } 
+        let number_of_markers = dir_entries.len();
+        number_of_markers
+    
+    }
+
+
 
     pub fn add_euk_info_to_contigs_using_compleasm(&self, contigs_path: &PathBuf, contigs: &mut [Contig], output_directory: &PathBuf, threads: usize) {
 
@@ -296,7 +317,7 @@ mod tests {
 
 
     fn initialise_test_euk_gatherer() -> EukaryoticBinQualityGetter {
-        EukaryoticBinQualityGetter::initialise(&COMPLEASM_DB_LIB.to_str().unwrap(), 255, "eukaryota_odb10".to_string())
+        EukaryoticBinQualityGetter::initialise(&COMPLEASM_DB_LIB.to_str().unwrap())
     }
 
     fn module_full_test() {
@@ -307,6 +328,12 @@ mod tests {
         }
 
 
+    }
+    #[test]
+    fn test_euk_correctly_giving_markers_and_db() {
+        let euk_db_gatherer = initialise_test_euk_gatherer();
+        assert_eq!(euk_db_gatherer.number_of_marker_ids, 255);
+        assert_eq!(euk_db_gatherer.compleasm_db, "eukaryota_odb10");
     }
 
     #[test]
