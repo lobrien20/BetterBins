@@ -27,11 +27,13 @@ pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, max_
     let successful_bins = new_bin_finder.test_each_node(arc_bin_graph, Arc::clone(&bin_generator));
     let all_successful_bins = successful_bins.into_iter().collect_vec();
     let mut all_bins_as_bins: Vec<Bin> = all_successful_bins.into_iter().map(|contig_set| bin_generator.generate_new_bin_from_contigs(contig_set).unwrap()).collect();
-    info!("Graph clustering successfully generated {} hybrid bins from {} unique bins", all_bins_as_bins.len(), initial_unique_bins.len());
 
 
+    info!("Graph clustering generated {} hybrid bins, dereplicating...", all_bins_as_bins.len());
 
     let all_extended_unique_bins = ClusteringPrep::remove_duplicate_bins(all_bins_as_bins).into_iter().map(|bin| Arc::new(bin)).collect_vec();
+
+    info!("Graph clustering successfully generated {} unique hybrid bins from {} unique bins", all_extended_unique_bins.len(), initial_unique_bins.len());
     let bin_set_of_bins_produced_by_clustering = BinSet::make_bin_set_from_bins_vec(all_extended_unique_bins);
     bin_set_of_bins_produced_by_clustering.create_bin_set_dir_and_info_from_best_hashes(&bin_generator.hash_directory, &cluster_output_directory, false);
     bin_set_of_bins_produced_by_clustering
@@ -45,7 +47,7 @@ pub fn run_additional_eukaryotic_clustering_stage(bins: &Vec<Bin>, bin_generator
         .filter(|bin| bin.bin_type == BinType::eukaryote)
         .map(|bin| bin.clone())
         .collect_vec();
-
+    info!("Testing additional eukaryotic clustering stage on {} bins", eukaryotic_bins.len());
     let all_eukaryotic_bin_pairs = ClusteringPrep::get_euk_bin_pairs_with_less_than_max_euclidean_distance(&eukaryotic_bins, kmer_size, max_euclidean_distance);
     info!("Identified {} pairs with minimum_distance", all_eukaryotic_bin_pairs.len());
     let bin_distance_graph = BinDistanceGraph::generate_graph(eukaryotic_bins.clone(), all_eukaryotic_bin_pairs);
@@ -75,7 +77,7 @@ impl ClusteringPrep {
                 unique_bins.push(bin);
 
             } else {
-                info!("Clustering: Found duplicate initial bin!");
+                info!("Clustering: Found duplicate bin!");
             }
         }
         unique_bins
@@ -114,8 +116,10 @@ impl ClusteringPrep {
     }
 
     fn get_euk_bin_pairs_with_less_than_max_euclidean_distance<'a>(bins: &'a [Bin], kmer_size: usize, max_euclidean_distance: f64) -> Vec<(&'a Bin, &'a Bin)>{
+        info!("Getting eukaryotic bin pairs with less than max euclidean distance");
         let mut all_potential_bin_pairs: Vec<(&Bin, &Bin)> = bins.into_iter()
             .combinations(2).map(|bin_combo| (bin_combo[0], bin_combo[1])).collect();
+        info!("{} potential bin pairs", all_potential_bin_pairs.len());
         let all_unique_contigs = bins.iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect_vec();
         let contig_kmer_hashmap = ClusteringPrep::create_contig_kmer_dict_from_bins(kmer_size, all_unique_contigs);
         let bin_kmer_dict = ClusteringPrep::create_bin_kmer_dict_from_contig_kmer_hashmap(bins, contig_kmer_hashmap);

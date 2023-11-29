@@ -73,6 +73,7 @@ fn main() {
         .map(|bin| Arc::clone(bin)) // Clones the Arc<Bin>
         .map(|arc_bin| (*arc_bin).clone()) // Clones the inner Bin
         .collect_vec();
+        info!("Jaccard distance based clustering complete!");
        if eukaryotic_bins.len() > 0 {
 			let eukaryotic_cluster_output_directory = args.results_directory.join("extra_eukaryotic_clustering_results_directory");
 			let new_bin_set = run_additional_eukaryotic_clustering_stage(&eukaryotic_bins, Arc::clone(&arc_bin_gen), args.max_euclidean_distance, eukaryotic_cluster_output_directory, args.euclidean_kmer_size);
