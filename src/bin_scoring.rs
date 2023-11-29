@@ -1,7 +1,7 @@
 pub struct BinScorer {
+    
     pub contamination_weight: f64,
     pub completion_weight: f64,
-
 
 }
 

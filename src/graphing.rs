@@ -153,21 +153,20 @@ impl ClusteringPrep {
         // uses tetranucleotide frequency ratio (as a means to normalise contig sizes)
         debug!("Calculating euclidean distance for bin pair!");
         let bin_1_kmers = bin_1.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_dict);
+        println!("{:?}", bin_1_kmers);
         let bin_2_kmers = bin_2.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_dict);
         let all_unique_kmers = bin_1_kmers.iter().chain(bin_2_kmers.iter()).unique().collect_vec();
+        println!("num Unique kmers: {}, number of bin 1 kmers: {}, number of bin 2 kmers: {}", all_unique_kmers.len(), bin_1_kmers.len(), bin_2_kmers.len());
         let mut sum_of_squared_differences = 0.0;
         for unique_kmer in all_unique_kmers {
-            
-            let bin_1_num = bin_1_kmers.iter() 
-                .filter(|bin_kmer| &unique_kmer == bin_kmer)
-                .count() / bin_1_kmers.len(); 
-            
-            let bin_2_num = bin_2_kmers.iter()
-                .filter(|bin_kmer| &unique_kmer == bin_kmer)
-                .count() / bin_2_kmers.len();
-
-
-            let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num).pow(2)) as f64;
+            println!("Unique kmer is: {}", unique_kmer);
+            let bin_1_count = bin_1_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
+            let bin_2_count = bin_2_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
+    
+            let bin_1_num = bin_1_count as f64 / bin_1_kmers.len() as f64; 
+            let bin_2_num = bin_2_count as f64 / bin_2_kmers.len() as f64;
+            println!("bin 1 has {} for kmer, bin 2 has {} for kmer", bin_1_num, bin_1_num);
+            let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num).powf(2.0));
             sum_of_squared_differences = sum_of_squared_differences + squared_kmer_diff;
         }
         let euclidean_distance = sum_of_squared_differences.sqrt();
@@ -320,14 +319,15 @@ impl NewBinFinder {
 }
 
 
-/* 
+
 mod tests {
 
-    use crate::{bin_info_storing::BinSet, bin_classes::BinType, initial_bins_and_contigs::gather_initial_bins_and_contig_information};
+    use crate::{bin_info_storage::BinType};
 
     use super::*;
     use std::{fs, env, path::{Path, PathBuf}};
     use lazy_static::lazy_static;
+    use rand::rngs::mock;
     lazy_static! {
     static ref TEST_DATA_HASH: PathBuf = PathBuf::from("tests/test_data/graphing_testing/hash_directory/");
 }
@@ -347,14 +347,14 @@ mod tests {
 
 
     fn create_fake_contigs_for_unit_test() -> Vec<Arc<Contig>> {
-        let fake_contig_1 = Contig::new_contig(">fake_contig_1".to_string(), "ATGGCTAGCATCGATGCTAGCAGGAGCGGAGAGCTATGCATGC\n".to_string());
-        let fake_contig_2 = Contig::new_contig(">fake_contig_2".to_string(), "ATGGCTAGCATCGATGCTTTTTTAGAGCTATGCATGC\n".to_string());
-        let fake_contig_3 = Contig::new_contig(">fake_contig_3".to_string(), "AGTTTTTTGCTAGCATCGATGCTTTTTTGGGGGGC\n".to_string());
-        let fake_contig_4 = Contig::new_contig(">fake_contig_4".to_string(), "ATGGCTAGCATCGATGCTTTTTTAGAGCTATGCATGC\n".to_string());
-        let fake_contig_5 = Contig::new_contig(">fake_contig_5".to_string(), "ATGGCTAGCAAAATCGATGCTTTTTTAGAGCTATGCATGC\n".to_string());
-        let fake_contig_6 = Contig::new_contig(">fake_contig_6".to_string(), "ATGGATATATATCTAGCATCGATGCTTTGTTAGAGCTACCCTGCATGC\n".to_string());
-        let fake_contig_7 = Contig::new_contig(">fake_contig_7".to_string(), "ATGGCTACCCGCATCGATGCTTTGTTAGAGCTACCCTGCATGC\n".to_string());
-        let fake_contig_8 = Contig::new_contig(">fake_contig_8".to_string(), "ATGGGGGGCTAGCATCGATGCTTTGTTAGAGCTACCCTGCATGC\n".to_string());
+        let fake_contig_1 = Contig::new_contig(">fake_contig_1".to_string(), "AAAAAA".to_string());
+        let fake_contig_2 = Contig::new_contig(">fake_contig_2".to_string(), "TTTTTT".to_string());
+        let fake_contig_3 = Contig::new_contig(">fake_contig_3".to_string(), "CCCCCC".to_string());
+        let fake_contig_4 = Contig::new_contig(">fake_contig_4".to_string(), "GGGGGG".to_string());
+        let fake_contig_5 = Contig::new_contig(">fake_contig_5".to_string(), "AAATTT".to_string());
+        let fake_contig_6 = Contig::new_contig(">fake_contig_6".to_string(), "TTTCCC".to_string());
+        let fake_contig_7 = Contig::new_contig(">fake_contig_7".to_string(), "CCCGGG".to_string());
+        let fake_contig_8 = Contig::new_contig(">fake_contig_8".to_string(), "GGGAAA".to_string());
         let contig_vec = vec![fake_contig_1, fake_contig_2, fake_contig_3, fake_contig_4, fake_contig_5, fake_contig_6, fake_contig_7, fake_contig_8];
         let fake_contig_arc: Vec<Arc<Contig>> = contig_vec.into_iter().map(|x| Arc::new(x)).collect();
         fake_contig_arc
@@ -375,13 +375,12 @@ mod tests {
     fn create_fake_bin_for_unit_test() -> Bin {
 
 
-        let mut fake_bin = Bin {fasta_path: PathBuf::from("not_needed"),
-        bin_contigs: None,
-        completeness: Some(100.0),
-        contamination: Some(8.75),
-        bin_type: Some(BinType::prokaryote),
+        let mut fake_bin = Bin {
+        bin_contigs: Vec::new(),
+        completeness: 100.0,
+        contamination: 8.75,
+        bin_type: BinType::prokaryote,
         bin_hash: "fake_bin_1".to_string(),
-        bin_dir_path: PathBuf::from("not needed")
 
         };
         fake_bin
@@ -389,37 +388,36 @@ mod tests {
     fn create_fake_bin2_for_unit_test() -> Bin {
 
 
-        let mut fake_bin2 = Bin {fasta_path: PathBuf::from("not_needed"),
-        bin_contigs: None,
-        completeness: Some(100.0),
-        contamination: Some(9.0),
-        bin_type: Some(BinType::prokaryote),
+        let mut fake_bin2 = Bin {
+        bin_contigs: Vec::new(),
+        completeness: 100.0,
+        contamination: 9.0,
+        bin_type: BinType::prokaryote,
         bin_hash: "fake_bin_2".to_string(),
-        bin_dir_path: PathBuf::from("not needed")
+
 
         };
         fake_bin2
     }
     fn create_fake_bin3_for_unit_test() -> Bin {
-        let mut fake_bin3 = Bin {fasta_path: PathBuf::from("not_needed"),
-        bin_contigs: None,
-        completeness: Some(40.0),
-        contamination: Some(9.0),
-        bin_type: Some(BinType::prokaryote),
+        let mut fake_bin3 = Bin {
+        bin_contigs: Vec::new(),
+        completeness: 40.0,
+        contamination: 9.0,
+        bin_type: BinType::prokaryote,
         bin_hash: "fake_bin_3".to_string(),
-        bin_dir_path: PathBuf::from("not needed")
+
 
         };
         fake_bin3
     }
     fn create_fake_bin4_for_unit_test() -> Bin {
-        let mut fake_bin4 = Bin {fasta_path: PathBuf::from("not_needed"),
-        bin_contigs: None,
-        completeness: Some(40.0),
-        contamination: Some(9.0),
-        bin_type: Some(BinType::prokaryote),
+        let mut fake_bin4 = Bin {
+        bin_contigs: Vec::new(),
+        completeness: 40.0,
+        contamination: 9.0,
+        bin_type: BinType::prokaryote,
         bin_hash: "fake_bin_4".to_string(),
-        bin_dir_path: PathBuf::from("not needed")
 
         };
         fake_bin4
@@ -434,9 +432,9 @@ mod tests {
         let fake_contigs_for_bin_1 = vec![Arc::clone(&fake_contigs[0]), Arc::clone(&fake_contigs[1]), Arc::clone(&fake_contigs[2]), Arc::clone(&fake_contigs[7])]; // has one the same as last, zero the same as second
         let fake_contigs_for_bin_2 = vec![Arc::clone(&fake_contigs[3]), Arc::clone(&fake_contigs[4]), Arc::clone(&fake_contigs[5]), Arc::clone(&fake_contigs[6])];
         let fake_contigs_for_bin_3 = vec![Arc::clone(&fake_contigs[0]), Arc::clone(&fake_contigs[3]), Arc::clone(&fake_contigs[5]), Arc::clone(&fake_contigs[6]), Arc::clone(&fake_contigs[4])]; // has one contig the same as the first, four the same as the second
-        bin_1.bin_contigs = Some(fake_contigs_for_bin_1);
-        bin_2.bin_contigs = Some(fake_contigs_for_bin_2);
-        bin_3.bin_contigs = Some(fake_contigs_for_bin_3);
+        bin_1.bin_contigs = fake_contigs_for_bin_1;
+        bin_2.bin_contigs = fake_contigs_for_bin_2;
+        bin_3.bin_contigs = fake_contigs_for_bin_3;
         (vec![bin_1, bin_2, bin_3], fake_contigs)
     }
 
@@ -447,10 +445,10 @@ mod tests {
             let bin_one_against_two_result = 0.0;
             let bin_one_against_three_result = 0.125;
             let bin_two_against_three_result = 0.8;
-            assert_eq!(ClusteringPrep::calc_jaccard_similarity(&fake_bins[0], &fake_bins[1]), bin_one_against_two_result);
-            assert_eq!(ClusteringPrep::calc_jaccard_similarity(&fake_bins[0], &fake_bins[2]), bin_one_against_three_result);
-            assert_eq!(ClusteringPrep::calc_jaccard_similarity(&fake_bins[1], &fake_bins[2]), bin_two_against_three_result);
-            let connected_bins = ClusteringPrep::get_bins_with_minimum_similarity_jaccard_shared(&fake_bins, 0.7);
+            assert_eq!(ClusteringPrep::calc_jaccard_distance(&fake_bins[0], &fake_bins[1]), bin_one_against_two_result);
+            assert_eq!(ClusteringPrep::calc_jaccard_distance(&fake_bins[0], &fake_bins[2]), bin_one_against_three_result);
+            assert_eq!(ClusteringPrep::calc_jaccard_distance(&fake_bins[1], &fake_bins[2]), bin_two_against_three_result);
+            let connected_bins = ClusteringPrep::get_bin_pairs_with_less_than_max_jaccard_distance(&fake_bins, 0.7);
             assert_eq!(connected_bins.len(), 1);
             assert!(connected_bins[0] == (&fake_bins[1], &fake_bins[2]));
 
@@ -458,7 +456,7 @@ mod tests {
         #[test]
         fn test_graph_creation() {
             let (fake_bins, _) = create_bin_contig_mock();
-            let connected_bins = ClusteringPrep::get_bins_with_minimum_similarity_jaccard_shared(&fake_bins, 0.7);
+            let connected_bins = ClusteringPrep::get_bin_pairs_with_less_than_max_jaccard_distance(&fake_bins, 0.7);
             let bin_distance_graph = BinDistanceGraph::generate_graph(fake_bins.clone(), connected_bins);
             let test_graph = bin_distance_graph.the_graph;
             let mut fake_graph = Graph::<Bin, f64>::new();
@@ -499,10 +497,11 @@ mod tests {
             }
 
         }
+        /* 
         #[test]
         fn real_example_bins(){
             
-            let bin_generator = BinGen::initialise_bin_gen(Some(CHECKM2_DB_PATH.to_path_buf()), Some(COMPLEASM_DB_LIB.to_path_buf()), TEST_DATA_HASH.clone(), 100.0, 0.0);
+            let bin_generator = BinGen::initialise(Some(CHECKM2_DB_PATH.to_path_buf()), Some(COMPLEASM_DB_LIB.to_path_buf()), TEST_DATA_HASH.clone(), 100.0, 0.0);
             let arc_bin_gen = Arc::new(bin_generator);
             let (bins, contigs) = gather_initial_bins_and_contig_information(&TEST_DATA_DIR, Arc::clone(&arc_bin_gen));
             let connected_bins = ClusteringPrep::get_bins_with_minimum_similarity_jaccard_shared(&bins, 0.1);
@@ -563,13 +562,14 @@ mod tests {
           //  new_bin_finder.test_connected_route(nodes_in_route, Arc::new(bin_dist_graph), Arc::clone(&arc_bin_gen));
 
         }
-
+        */
         #[test]
-        fn validate_test_node_potential_bins_method() {
-            let new_bin_finder = NewBinFinder{};
-          //  new_bin_finder.test_node_potential_bins(bin_distance_graph, current_bin_nodes, bin_generator, current_bin_quality, successful_bins)
+        fn test_calculate_euclidean_distance_between_bin_pair() {
+            let (mock_bins, mock_contigs) = create_bin_contig_mock();
+            let contig_kmer_dict = ClusteringPrep::create_contig_kmer_dict_from_bins(3, mock_contigs);
+            println!("{:?}", contig_kmer_dict);
+        let test_rs = ClusteringPrep::calculate_euclidean_distance_between_bin_pair(&mock_bins[0], &mock_bins[1], Arc::new(contig_kmer_dict));
+        println!("{}", test_rs);
         }
 
-
 }
-*/
