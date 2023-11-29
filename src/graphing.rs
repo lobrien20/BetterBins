@@ -296,9 +296,7 @@ impl NewBinFinder {
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
                         successful_bins.push(intersection_contigs);
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
-                    } else {
-                        fs::remove_dir_all(bin_generator.hash_directory.join(bin_res.bin_hash)).unwrap();
-                    }
+                    } 
                 },
                 None => ()
             }
@@ -314,9 +312,7 @@ impl NewBinFinder {
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
                         successful_bins.push(union_contigs);
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
-                    } else {
-                        fs::remove_dir_all(bin_generator.hash_directory.join(bin_res.bin_hash)).unwrap();
-                    }
+                    } 
                 },
                 None => ()
             }
