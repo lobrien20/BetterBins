@@ -127,7 +127,7 @@ impl ClusteringPrep {
             .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap()) // Sort the vector by the second item of the tuple
             .collect(); // Finally, collect into a HashMap
         let max_dist = all_euclidean_pairing_result_sorted[0].1;
-        let min_dist = all_euclidean_pairing_result_sorted[all_euclidean_pairing_result_sorted.len()].1;
+        let min_dist = all_euclidean_pairing_result_sorted[all_euclidean_pairing_result_sorted.len() - 1].1;
 
         let mut viable_bin_pairs = Vec::new();
         for (bin_pair, euclid_dist) in all_euclidean_pairing_result_sorted {
@@ -160,9 +160,9 @@ impl ClusteringPrep {
     }
     fn convert_bin_kmer_dict_to_bin_kmer_frequency_ratio_dict(bin_kmer_dict: HashMap<String, i32>) -> HashMap<String, f64> {
         let mut bin_kmer_frequency_ratio_dict = HashMap::new();
-        let total_kmers = bin_kmer_dict.iter().fold(0, |acc, (key, value)| acc + value);
+        let total_kmers = bin_kmer_dict.values().fold(0.0, |acc, value| acc + *value as f64);
         for (kmer, count) in bin_kmer_dict {
-            bin_kmer_frequency_ratio_dict.insert(kmer, (count / total_kmers) as f64);
+            bin_kmer_frequency_ratio_dict.insert(kmer, (count as f64 / total_kmers));
         }
         bin_kmer_frequency_ratio_dict
     }
@@ -579,8 +579,23 @@ mod tests {
             let (mock_bins, mock_contigs) = create_bin_contig_mock();
             let contig_kmer_dict = ClusteringPrep::create_contig_kmer_dict_from_bins(3, mock_contigs);
    //         println!("{:?}", contig_kmer_dict);
-  //      let test_rs = ClusteringPrep::calculate_euclidean_distance_between_bin_pair(&mock_bins[0], &mock_bins[1], Arc::new(contig_kmer_dict));
+            let mock_1_hashmap = HashMap::from([("AAA".to_string(), 1.0), ("TTT".to_string(), 2.0), ("CCC".to_string(), 2.0)]);
+            let mock_2_hashmap = HashMap::from([("AAA".to_string(), 1.0), ("TTT".to_string(), 4.0), ("GGG".to_string(), 3.5)]);
+            // expected euclidean distance: 
+            // square root of 0^2 + 2^2 + 2^2 + 3.5 ^ 2 = 3.5
+
+
+
+            let test_rs = ClusteringPrep::calculate_euclidean_distance_between_bin_pair(&mock_1_hashmap, &mock_2_hashmap);
+            assert_eq!(test_rs, 4.5)
   //      println!("{}", test_rs);
+        }
+        #[test]
+        fn test_convert_bin_kmer_dict_to_bin_kmer_frequency_ratio_dict() {
+            let mock_1_hashmap = HashMap::from([("AAA".to_string(), 1), ("TTT".to_string(), 2), ("CCC".to_string(), 2)]);
+            let test_ratio_hashmap = ClusteringPrep::convert_bin_kmer_dict_to_bin_kmer_frequency_ratio_dict(mock_1_hashmap);
+            let expected_ratio_hashmap = HashMap::from([("AAA".to_string(), 0.2), ("TTT".to_string(), 0.4), ("CCC".to_string(), 0.4)]);
+            assert_eq!(expected_ratio_hashmap, test_ratio_hashmap);
         }
 
 }
