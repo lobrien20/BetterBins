@@ -80,8 +80,7 @@ pub struct Bin {
     pub completeness: f64,
     pub contamination: f64,
     pub bin_type: BinType,
-    pub bin_hash: String
-
+    pub bin_hash: String,
 
 }
 

@@ -17,7 +17,7 @@ use crate::bin_sets::BinSet;
 use crate::contigs::Contig;
 
 
-pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, max_jaccard_distance: f64, max_euclidean_distance: f64, cluster_output_directory: PathBuf)  -> BinSet {
+pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, max_jaccard_distance: f64, cluster_output_directory: PathBuf)  -> BinSet {
     
     let initial_unique_bins = ClusteringPrep::remove_duplicate_bins(the_bins);
     let connected_bins = ClusteringPrep::get_bin_pairs_with_less_than_max_jaccard_distance(&initial_unique_bins, max_jaccard_distance);
@@ -39,14 +39,14 @@ pub fn run_graph_clustering(the_bins: Vec<Bin>, bin_generator: Arc<BinGen>, max_
 }
 
 
-pub fn run_additional_eukaryotic_clustering_stage(bins: &Vec<Bin>, bin_generator: Arc<BinGen>, max_euclidean_distance: f64, cluster_output_directory: PathBuf) -> BinSet{
+pub fn run_additional_eukaryotic_clustering_stage(bins: &Vec<Bin>, bin_generator: Arc<BinGen>, max_euclidean_distance: f64, cluster_output_directory: PathBuf, kmer_size: usize) -> BinSet{
     
     let eukaryotic_bins = bins.iter()
         .filter(|bin| bin.bin_type == BinType::eukaryote)
         .map(|bin| bin.clone())
         .collect_vec();
 
-    let all_eukaryotic_bin_pairs = ClusteringPrep::get_euk_bin_pairs_with_less_than_max_euclidean_distance(&eukaryotic_bins, 4, max_euclidean_distance);
+    let all_eukaryotic_bin_pairs = ClusteringPrep::get_euk_bin_pairs_with_less_than_max_euclidean_distance(&eukaryotic_bins, kmer_size, max_euclidean_distance);
     info!("Identified {} pairs with minimum_distance", all_eukaryotic_bin_pairs.len());
     let bin_distance_graph = BinDistanceGraph::generate_graph(eukaryotic_bins.clone(), all_eukaryotic_bin_pairs);
     let new_bin_finder = NewBinFinder{};
@@ -318,7 +318,7 @@ impl NewBinFinder {
     fn check_if_improvement_conditions_met(&self, current_bin_quality: &(f64, f64), new_potential_bin_quality: &(f64, f64)) -> bool {
         
         let change_in_completeness = new_potential_bin_quality.0 - current_bin_quality.0;
-        let change_in_contamination = new_potential_bin_quality.0 - current_bin_quality.1;
+        let change_in_contamination = new_potential_bin_quality.1 - current_bin_quality.1;
         change_in_completeness >= change_in_contamination
 
         

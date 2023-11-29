@@ -67,7 +67,7 @@ fn main() {
     let mut bin_arc_contigs = None;
     if args.run_clustering {
        let cluster_output_directory = args.results_directory.join("cluster_results_directory");
-       let bin_set = run_graph_clustering(bins, Arc::clone(&arc_bin_gen), args.max_jaccard_distance, args.max_euclidean_distance, cluster_output_directory);
+       let bin_set = run_graph_clustering(bins, Arc::clone(&arc_bin_gen), args.max_jaccard_distance, cluster_output_directory);
        let eukaryotic_bins = bin_set.bins.iter()
         .filter(|bin| bin.bin_type == BinType::eukaryote)
         .map(|bin| Arc::clone(bin)) // Clones the Arc<Bin>
@@ -75,7 +75,7 @@ fn main() {
         .collect_vec();
        if eukaryotic_bins.len() > 0 {
 			let eukaryotic_cluster_output_directory = args.results_directory.join("extra_eukaryotic_clustering_results_directory");
-			let new_bin_set = run_additional_eukaryotic_clustering_stage(&eukaryotic_bins, Arc::clone(&arc_bin_gen), args.max_euclidean_distance, eukaryotic_cluster_output_directory);
+			let new_bin_set = run_additional_eukaryotic_clustering_stage(&eukaryotic_bins, Arc::clone(&arc_bin_gen), args.max_euclidean_distance, eukaryotic_cluster_output_directory, args.euclidean_kmer_size);
 			bin_arc_contigs = Some(new_bin_set.bins.into_iter().map(|bin| bin.bin_contigs.clone()).collect_vec());
 
        } else {
@@ -145,8 +145,13 @@ struct Cli {
     #[arg(short, long, default_value = "0.5")]
     max_euclidean_distance: f64,
 
+    #[arg(short, long, default_value = "4")]
+    euclidean_kmer_size: usize,
+
     #[arg(short, long, default_value = "123")]
-    min_marker_prediction_minimum_marker_num: usize
+    min_marker_prediction_minimum_marker_num: usize,
+
+
 
 
 
