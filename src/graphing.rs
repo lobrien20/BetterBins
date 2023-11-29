@@ -7,6 +7,7 @@ use petgraph::{stable_graph::NodeIndex, visit::Bfs};
 use rayon::iter::IndexedParallelIterator;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator, IntoParallelRefIterator};
 use std::collections::{HashMap, HashSet};
+use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use petgraph::{Graph, Undirected, visit::IntoNodeReferences};
@@ -117,12 +118,13 @@ impl ClusteringPrep {
 
     fn get_euk_bin_pairs_with_less_than_max_euclidean_distance<'a>(bins: &'a [Bin], kmer_size: usize, max_euclidean_distance: f64) -> Vec<(&'a Bin, &'a Bin)>{
         info!("Getting eukaryotic bin pairs with less than max euclidean distance");
-        let mut all_potential_bin_pairs: Vec<(&Bin, &Bin)> = bins.into_iter()
+        let all_potential_bin_pairs: Vec<(&Bin, &Bin)> = bins.into_iter()
             .combinations(2).map(|bin_combo| (bin_combo[0], bin_combo[1])).collect();
         info!("{} potential bin pairs", all_potential_bin_pairs.len());
         let all_unique_contigs = bins.iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect_vec();
         let contig_kmer_hashmap = ClusteringPrep::create_contig_kmer_dict_from_bins(kmer_size, all_unique_contigs);
         let bin_kmer_dict = ClusteringPrep::create_bin_kmer_dict_from_contig_kmer_hashmap(bins, contig_kmer_hashmap);
+
         let all_euclidean_pairing_result_sorted: Vec<((&&Bin, &&Bin), f64)> = all_potential_bin_pairs
             .par_iter()
             .map(|(bin_1, bin_2)| ((bin_1, bin_2), ClusteringPrep::calculate_euclidean_distance_between_bin_pair(bin_kmer_dict.get(bin_1).unwrap(), bin_kmer_dict.get(bin_2).unwrap())))
@@ -136,11 +138,11 @@ impl ClusteringPrep {
         let mut viable_bin_pairs = Vec::new();
         for (bin_pair, euclid_dist) in all_euclidean_pairing_result_sorted {
             let min_max_normalised_distance = (euclid_dist - min_dist) / (max_dist - min_dist);
-            debug!("normalised euclidean distance equals: {}", min_max_normalised_distance);
             if min_max_normalised_distance < max_euclidean_distance {
                 viable_bin_pairs.push((*bin_pair.0, *bin_pair.1));
             }
         }
+        info!("{} viable bin pairs at kmer size {} using max normalised euclidean distance of: {}", viable_bin_pairs.len(), kmer_size, max_euclidean_distance);
         viable_bin_pairs
 
     }
@@ -186,7 +188,6 @@ impl ClusteringPrep {
             sum_of_squared_differences += squared_kmer_diff;
         }
         let euclidean_distance = sum_of_squared_differences.sqrt();
-        debug!("Calculated euclidean distance as: {}", euclidean_distance);
         euclidean_distance
     }
 
@@ -295,6 +296,8 @@ impl NewBinFinder {
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
                         successful_bins.push(intersection_contigs);
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
+                    } else {
+                        fs::remove_dir_all(bin_generator.hash_directory.join(bin_res.bin_hash)).unwrap();
                     }
                 },
                 None => ()
@@ -311,6 +314,8 @@ impl NewBinFinder {
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
                         successful_bins.push(union_contigs);
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
+                    } else {
+                        fs::remove_dir_all(bin_generator.hash_directory.join(bin_res.bin_hash)).unwrap();
                     }
                 },
                 None => ()
