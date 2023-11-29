@@ -151,21 +151,16 @@ impl ClusteringPrep {
 
     fn calculate_euclidean_distance_between_bin_pair(bin_1: &Bin, bin_2: &Bin, contig_kmer_dict: Arc<HashMap<Arc<Contig>, Vec<String>>>) -> f64 {
         // uses tetranucleotide frequency ratio (as a means to normalise contig sizes)
-        debug!("Calculating euclidean distance for bin pair!");
         let bin_1_kmers = bin_1.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_dict);
-        println!("{:?}", bin_1_kmers);
         let bin_2_kmers = bin_2.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_dict);
         let all_unique_kmers = bin_1_kmers.iter().chain(bin_2_kmers.iter()).unique().collect_vec();
-        println!("num Unique kmers: {}, number of bin 1 kmers: {}, number of bin 2 kmers: {}", all_unique_kmers.len(), bin_1_kmers.len(), bin_2_kmers.len());
         let mut sum_of_squared_differences = 0.0;
         for unique_kmer in all_unique_kmers {
-            println!("Unique kmer is: {}", unique_kmer);
             let bin_1_count = bin_1_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
             let bin_2_count = bin_2_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
     
             let bin_1_num = bin_1_count as f64 / bin_1_kmers.len() as f64; 
             let bin_2_num = bin_2_count as f64 / bin_2_kmers.len() as f64;
-            println!("bin 1 has {} for kmer, bin 2 has {} for kmer", bin_1_num, bin_1_num);
             let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num).powf(2.0));
             sum_of_squared_differences = sum_of_squared_differences + squared_kmer_diff;
         }
