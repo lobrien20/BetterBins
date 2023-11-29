@@ -167,7 +167,7 @@ impl ClusteringPrep {
                 .count() / bin_2_kmers.len();
 
 
-            let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num) ^ 2) as f64;
+            let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num).pow(2)) as f64;
             sum_of_squared_differences = sum_of_squared_differences + squared_kmer_diff;
         }
         let euclidean_distance = sum_of_squared_differences.sqrt();
