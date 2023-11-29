@@ -150,26 +150,36 @@ impl ClusteringPrep {
         contig_kmer_dict
     }
 
-    fn create_bin_kmer_dict_from_contig_kmer_hashmap<'a> (bins: &'a [Bin], contig_kmer_hashmap: HashMap<Arc<Contig>, Vec<String>>) -> HashMap<&Bin, Vec<String>> {
-        let bin_kmer_hashmap: HashMap<&Bin, Vec<String>> = bins.par_iter()
-            .map(|bin| (bin, bin.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_hashmap).clone())).collect();
+    fn create_bin_kmer_dict_from_contig_kmer_hashmap<'a> (bins: &'a [Bin], contig_kmer_hashmap: HashMap<Arc<Contig>, Vec<String>>) -> HashMap<&Bin, HashMap<String, f64>> {
+        let bin_kmer_hashmap: HashMap<&Bin, HashMap<String, f64>> = bins.par_iter()
+            .map(|bin| (bin, bin.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_hashmap).clone()))
+            .map(|(bin, bin_kmer_hashmap)| (bin, ClusteringPrep::convert_bin_kmer_dict_to_bin_kmer_frequency_ratio_dict(bin_kmer_hashmap)))
+            .collect();
         debug!("Successfully generated bin kmer hashmap!");
         bin_kmer_hashmap
     }
+    fn convert_bin_kmer_dict_to_bin_kmer_frequency_ratio_dict(bin_kmer_dict: HashMap<String, i32>) -> HashMap<String, f64> {
+        let mut bin_kmer_frequency_ratio_dict = HashMap::new();
+        let total_kmers = bin_kmer_dict.iter().fold(0, |acc, (key, value)| acc + value);
+        for (kmer, count) in bin_kmer_dict {
+            bin_kmer_frequency_ratio_dict.insert(kmer, (count / total_kmers) as f64);
+        }
+        bin_kmer_frequency_ratio_dict
+    }
 
 
-    fn calculate_euclidean_distance_between_bin_pair(bin_1_kmers: &Vec<String>, bin_2_kmers: &Vec<String> ) -> f64 {
+    fn calculate_euclidean_distance_between_bin_pair(bin_1_kmer_hash: &HashMap<String, f64>, bin_2_kmer_hash: &HashMap<String, f64>) -> f64 {
         // uses tetranucleotide frequency ratio (as a means to normalise contig sizes)
-        let all_unique_kmers = bin_1_kmers.iter().chain(bin_2_kmers.iter()).unique().collect_vec();
+        let all_unique_kmers: HashSet<&String> = bin_1_kmer_hash.keys().chain(bin_2_kmer_hash.keys()).unique().collect();
+
         let mut sum_of_squared_differences = 0.0;
-        for unique_kmer in all_unique_kmers {
-            let bin_1_count = bin_1_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
-            let bin_2_count = bin_2_kmers.iter().filter(|bin_kmer| &unique_kmer == bin_kmer).count();
+
+        for kmer in all_unique_kmers {
+            let bin_1_num = *bin_1_kmer_hash.get(kmer).unwrap_or(&0.0);
+            let bin_2_num = *bin_2_kmer_hash.get(kmer).unwrap_or(&0.0);
     
-            let bin_1_num = bin_1_count as f64 / bin_1_kmers.len() as f64; 
-            let bin_2_num = bin_2_count as f64 / bin_2_kmers.len() as f64;
-            let squared_kmer_diff: f64 = ((bin_1_num - bin_2_num).powf(2.0));
-            sum_of_squared_differences = sum_of_squared_differences + squared_kmer_diff;
+            let squared_kmer_diff = (bin_1_num - bin_2_num) * (bin_1_num - bin_2_num);
+            sum_of_squared_differences += squared_kmer_diff;
         }
         let euclidean_distance = sum_of_squared_differences.sqrt();
         debug!("Calculated euclidean distance as: {}", euclidean_distance);

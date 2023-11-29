@@ -89,12 +89,17 @@ impl Bin {
 
 
 
-    pub fn get_bin_kmers_from_contig_kmer_hashmap<'a>(&self, contig_kmer_hashmap: &'a HashMap<Arc<Contig>, Vec<String>>) -> Vec<String> {
-        self.bin_contigs.iter()
+    pub fn get_bin_kmers_from_contig_kmer_hashmap<'a>(&self, contig_kmer_hashmap: &'a HashMap<Arc<Contig>, Vec<String>>) -> HashMap<String, i32> {
+        let all_kmers: Vec<String> = self.bin_contigs.iter()
             .map(|contig| contig_kmer_hashmap.get(contig)
                     .expect("Critical Error: When running eukaryotic clustering contig not found in kmer hashmap!"))
             .flat_map(|kmers| kmers.iter().cloned())
-            .collect()
+            .collect();
+        let mut kmer_hashmap = HashMap::new();
+        for kmer in all_kmers {
+            *kmer_hashmap.entry(kmer).or_insert(0) += 1;
+        }
+        kmer_hashmap
     }
 
     
