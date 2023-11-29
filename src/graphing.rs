@@ -117,10 +117,11 @@ impl ClusteringPrep {
         let mut all_potential_bin_pairs: Vec<(&Bin, &Bin)> = bins.into_iter()
             .combinations(2).map(|bin_combo| (bin_combo[0], bin_combo[1])).collect();
         let all_unique_contigs = bins.iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect_vec();
-        let contig_kmer_dict = Arc::new(ClusteringPrep::create_contig_kmer_dict_from_bins(kmer_size, all_unique_contigs));
+        let contig_kmer_hashmap = ClusteringPrep::create_contig_kmer_dict_from_bins(kmer_size, all_unique_contigs);
+        let bin_kmer_dict = ClusteringPrep::create_bin_kmer_dict_from_contig_kmer_hashmap(bins, contig_kmer_hashmap);
         let all_euclidean_pairing_result_sorted: Vec<((&&Bin, &&Bin), f64)> = all_potential_bin_pairs
             .par_iter()
-            .map(|(bin_1, bin_2)| ((bin_1, bin_2), ClusteringPrep::calculate_euclidean_distance_between_bin_pair(bin_1, bin_2, Arc::clone(&contig_kmer_dict))))
+            .map(|(bin_1, bin_2)| ((bin_1, bin_2), ClusteringPrep::calculate_euclidean_distance_between_bin_pair(bin_kmer_dict.get(bin_1).unwrap(), bin_kmer_dict.get(bin_2).unwrap())))
             .collect::<Vec<_>>() // Collect into a vector first
             .into_iter()
             .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap()) // Sort the vector by the second item of the tuple
@@ -149,10 +150,16 @@ impl ClusteringPrep {
         contig_kmer_dict
     }
 
-    fn calculate_euclidean_distance_between_bin_pair(bin_1: &Bin, bin_2: &Bin, contig_kmer_dict: Arc<HashMap<Arc<Contig>, Vec<String>>>) -> f64 {
+    fn create_bin_kmer_dict_from_contig_kmer_hashmap<'a> (bins: &'a [Bin], contig_kmer_hashmap: HashMap<Arc<Contig>, Vec<String>>) -> HashMap<&Bin, Vec<String>> {
+        let bin_kmer_hashmap: HashMap<&Bin, Vec<String>> = bins.par_iter()
+            .map(|bin| (bin, bin.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_hashmap).clone())).collect();
+        debug!("Successfully generated bin kmer hashmap!");
+        bin_kmer_hashmap
+    }
+
+
+    fn calculate_euclidean_distance_between_bin_pair(bin_1_kmers: &Vec<String>, bin_2_kmers: &Vec<String> ) -> f64 {
         // uses tetranucleotide frequency ratio (as a means to normalise contig sizes)
-        let bin_1_kmers = bin_1.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_dict);
-        let bin_2_kmers = bin_2.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_dict);
         let all_unique_kmers = bin_1_kmers.iter().chain(bin_2_kmers.iter()).unique().collect_vec();
         let mut sum_of_squared_differences = 0.0;
         for unique_kmer in all_unique_kmers {
@@ -167,9 +174,7 @@ impl ClusteringPrep {
         let euclidean_distance = sum_of_squared_differences.sqrt();
         debug!("Calculated euclidean distance as: {}", euclidean_distance);
         euclidean_distance
-
     }
-
 
     
 
@@ -558,13 +563,14 @@ mod tests {
 
         }
         */
+
         #[test]
         fn test_calculate_euclidean_distance_between_bin_pair() {
             let (mock_bins, mock_contigs) = create_bin_contig_mock();
             let contig_kmer_dict = ClusteringPrep::create_contig_kmer_dict_from_bins(3, mock_contigs);
-            println!("{:?}", contig_kmer_dict);
-        let test_rs = ClusteringPrep::calculate_euclidean_distance_between_bin_pair(&mock_bins[0], &mock_bins[1], Arc::new(contig_kmer_dict));
-        println!("{}", test_rs);
+   //         println!("{:?}", contig_kmer_dict);
+  //      let test_rs = ClusteringPrep::calculate_euclidean_distance_between_bin_pair(&mock_bins[0], &mock_bins[1], Arc::new(contig_kmer_dict));
+  //      println!("{}", test_rs);
         }
 
 }

@@ -86,17 +86,18 @@ pub struct Bin {
 }
 
 impl Bin {
-    pub fn get_all_bin_kmers(&self, kmer_size: usize) -> Vec<&Vec<String>> {
+
+
+
+    pub fn get_bin_kmers_from_contig_kmer_hashmap<'a>(&self, contig_kmer_hashmap: &'a HashMap<Arc<Contig>, Vec<String>>) -> Vec<String> {
         self.bin_contigs.iter()
-        .map(|contig| contig.kmers.as_ref().unwrap()) // unwrap the Option
-        .collect()
+            .map(|contig| contig_kmer_hashmap.get(contig)
+                    .expect("Critical Error: When running eukaryotic clustering contig not found in kmer hashmap!"))
+            .flat_map(|kmers| kmers.iter().cloned())
+            .collect()
     }
-    pub fn get_bin_kmers_from_contig_kmer_hashmap(&self, contig_kmer_hashmap: &Arc<HashMap<Arc<Contig>, Vec<String>>>) -> Vec<String> {
-        self.bin_contigs.iter()
-        .map(|contig| contig_kmer_hashmap.get(contig).unwrap().clone())
-        .flatten() // unwrap the Option
-        .collect()
-    }
+
+    
 }
 
 // Enables use of bin in hashmap through using its contigs
