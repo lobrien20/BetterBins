@@ -8,13 +8,13 @@ use crate::{contigs::{Contig, ContigType, EukaryoticContigInformation}, prokaryo
 
 pub fn initialise_tool_through_getting_original_bins_and_contigs(output_directory: &PathBuf, prokaryote_db_path: String, 
     threads: usize, bin_directory_path: &PathBuf, eukaryota_db_path: String, hash_directory_path: &PathBuf, 
-    maximum_contamination: f64, minimum_completeness: f64, bin_type_predictor: Box<dyn BinTypePrediction>, bin_info_storer: BinInfoStorage) -> (BinGen, Vec<Bin>) {
+    maximum_contamination: f64, minimum_completeness: f64, bin_type_predictor: Box<dyn BinTypePrediction>, bin_info_storer: BinInfoStorage, dry_run: bool) -> (BinGen, Vec<Bin>) {
 
     let fasta_file_paths = find_bin_fastas(&bin_directory_path);
 
     let required_contig_information_processing = bin_type_predictor.required_contig_information();
     let mut bin_generator = BinGen::initialise(None, None, hash_directory_path.clone(), maximum_contamination, minimum_completeness, 
-        bin_info_storer, bin_type_predictor);
+        bin_info_storer, bin_type_predictor, dry_run);
     fs::create_dir(output_directory);
         
     let mut all_contigs: Vec<Contig> = generate_all_contigs_from_fasta_files(&fasta_file_paths);
@@ -258,6 +258,7 @@ fn get_contig_set_arc_from_bin_fasta_and_contigs(fasta_file_path: &PathBuf, all_
 }
 
 
+
 fn create_summary_file_of_initial_bin_fastas(path_to_bin_hashmap: &HashMap<PathBuf, Option<Bin>>, output_directory: &PathBuf, bin_directory: &PathBuf) {
     
     let summary_file_path = output_directory.join("original_bins_summary_file.tsv");
@@ -331,7 +332,7 @@ mod tests {
         initialise_tool_through_getting_original_bins_and_contigs(full_initialise_test, CHECKM2_DB_PATH.clone().into_os_string().into_string().unwrap(), 6, &TEST_DATA_DIR, 
             COMPLEASM_DB_LIB.clone().into_os_string().into_string().unwrap(), 
             hash_dir_path, 
-            100.0, 0.0, Box::new(bin_type_predictor), bin_info_storer);
+            100.0, 0.0, Box::new(bin_type_predictor), bin_info_storer, false);
             assert_eq!(bins.len(), 7);
             let mut all_bin_completenesses = bins.iter().map(|bin| bin.completeness).collect_vec();
             let mut all_bin_contaminations = bins.iter().map(|bin| bin.contamination).collect_vec();

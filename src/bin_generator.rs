@@ -13,17 +13,18 @@ use crate::{prokaryotic_contig_gatherer::ProkaryoticBinQualityGetter, eukaryotic
     pub maximum_contamination: f64,
     pub minimum_completeness: f64,
     bin_info_storage: RwLock<BinInfoStorage>,
-    pub bin_type_predictor: Box<dyn BinTypePrediction>
+    pub bin_type_predictor: Box<dyn BinTypePrediction>,
+    dry_run: bool
 
 }
 
 impl BinGen {
     pub fn initialise(prok_bin_quality_getter: Option<ProkaryoticBinQualityGetter>, euk_bin_quality_getter: Option<EukaryoticBinQualityGetter>, 
-        hash_directory: PathBuf, maximum_contamination: f64, minimum_completeness: f64, bin_info_storage: BinInfoStorage, bin_type_predictor: Box<dyn BinTypePrediction>) -> BinGen {
+        hash_directory: PathBuf, maximum_contamination: f64, minimum_completeness: f64, bin_info_storage: BinInfoStorage, bin_type_predictor: Box<dyn BinTypePrediction>, dry_run: bool) -> BinGen {
 
         BinGen {prok_bin_quality_getter: prok_bin_quality_getter, euk_bin_quality_getter: euk_bin_quality_getter, 
             hash_directory: hash_directory, maximum_contamination: maximum_contamination, minimum_completeness: minimum_completeness, bin_info_storage: RwLock::new(bin_info_storage), 
-            bin_type_predictor: bin_type_predictor}
+            bin_type_predictor: bin_type_predictor, dry_run: dry_run}
 
     }
 
@@ -33,12 +34,11 @@ impl BinGen {
     fn create_relevant_bin_files_and_analyse_bin(&self, contigs: Vec<Arc<Contig>>, bin_hash_string: &str, bin_type: &BinType) -> Option<Bin> {
         let bin_hash_dir_path = &self.hash_directory.join(&bin_hash_string);
         let fasta_path = &bin_hash_dir_path.join(&format!("{}.fa", &bin_hash_string));
-        let mut new_bin = false;
+        
         match fs::create_dir(&bin_hash_dir_path) { // aim here is to stop parallel races
             
             Ok(_) => {
                     create_bin_fasta(&contigs, fasta_path);
-                    new_bin = true;
                 },
 
             Err(_) => { info!("Bin already made!");
@@ -68,6 +68,11 @@ impl BinGen {
     }
 
     fn construct_bin_object_from_info(&self, contigs: Vec<Arc<Contig>>, bin_hash_string: String, bin_type: BinType, (completeness, contamination): (f64, f64)) -> Bin {
+        
+        if self.dry_run {
+            fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &bin_hash_string)));
+        }
+
         let the_bin = Bin {
             bin_contigs: contigs, 
             completeness: completeness,
@@ -77,10 +82,6 @@ impl BinGen {
         };
         self.add_new_bin_info_to_storage(the_bin.clone());
         debug!("Bin comp is {}, Bin cont is {}", the_bin.completeness, the_bin.contamination);
-  //      if the_bin.contamination > self.maximum_contamination || the_bin.contamination > the_bin.completeness { // directory containing bin info not necessary due to too low bin quality, deletes
-    //        fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap();
-     //   } 
-    //    fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &the_bin.bin_hash))).unwrap(); // Temporary measure!!!
 
         the_bin
     }
@@ -114,7 +115,11 @@ impl BinGen {
     fn add_failed_bin_to_storage(&self, bin_hash_string: &str) {
         let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
         unlocked_bin_info.add_failed_bin_hash_to_hashset(bin_hash_string.to_string());
-         fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &bin_hash_string))).unwrap();
+        if self.dry_run {
+
+            fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &bin_hash_string)));
+
+        }
 
     }
 

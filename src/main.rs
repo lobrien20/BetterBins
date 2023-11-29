@@ -60,7 +60,7 @@ fn main() {
     let bin_info_storage = BinInfoStorage::initialise_bin_info_storer();
     let (bin_generator, bins) = initialise_tool_through_getting_original_bins_and_contigs(initial_bin_info_dir_path, args.checkm2_db_path, args.threads, &args.path_to_bin_dir, 
         args.compleasm_db_path, &hash_directory, args.max_contamination, 
-        args.min_completeness, bin_type_predictor, bin_info_storage);
+        args.min_completeness, bin_type_predictor, bin_info_storage, args.dry_run);
 
     let bin_scorer = &bin_scoring::BinScorer { contamination_weight: args.contamination_weight, completion_weight: args.completion_weight };
     let arc_bin_gen = Arc::new(bin_generator);
@@ -92,8 +92,14 @@ fn main() {
     let best_bins = run_classic_best_bin(bin_arc_contigs.unwrap(), Box::new(bin_generator), bin_scorer).into_iter().map(|bin| Arc::new(bin)).collect_vec();
     let best_bin_set = BinSet::make_bin_set_from_bins_vec(best_bins);
     let best_bins_directory = &args.results_directory.join("best_bins_directory/");
+    if args.dry_run == false {
+        best_bin_set.create_bin_set_dir_and_info_from_best_hashes(&hash_directory, best_bins_directory, false);
 
-    best_bin_set.create_bin_set_dir_and_info_from_best_hashes(&hash_directory, best_bins_directory, true);
+    } else {
+    
+        best_bin_set.create_bin_set_dir_and_info_from_best_hashes(&hash_directory, best_bins_directory, true);
+
+    }
     fs::remove_dir_all(&hash_directory).unwrap();
 
 }
@@ -117,7 +123,7 @@ struct Cli {
     hash_directory: Option<PathBuf>,
 
     #[arg(short, long, default_value = "999.9")]
-    max_contamination: f64,
+    max_contamination: f64,             
     
     #[arg(short, long, default_value = "0.0")]
     min_completeness: f64,
@@ -151,7 +157,9 @@ struct Cli {
 
     #[arg(short, long, default_value = "123")]
     min_marker_prediction_minimum_marker_num: usize,
-
+    
+    #[arg(short, long, default_value = "false")]
+    dry_run: bool
 
 
 
@@ -255,7 +263,7 @@ mod tests {
             COMPLEASM_DB_LIB.to_string(), 
             hash_directory_path, 
             100.0, 0.0, Box::new(EukRepBasedPredictor{}),
-            bin_info_storage);
+            bin_info_storage, false);
 
 
     
