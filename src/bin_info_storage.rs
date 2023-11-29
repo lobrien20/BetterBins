@@ -91,6 +91,12 @@ impl Bin {
         .map(|contig| contig.kmers.as_ref().unwrap()) // unwrap the Option
         .collect()
     }
+    pub fn get_bin_kmers_from_contig_kmer_hashmap(&self, contig_kmer_hashmap: &Arc<HashMap<Arc<Contig>, Vec<String>>>) -> Vec<String> {
+        self.bin_contigs.iter()
+        .map(|contig| contig_kmer_hashmap.get(contig).unwrap().clone())
+        .flatten() // unwrap the Option
+        .collect()
+    }
 }
 
 // Enables use of bin in hashmap through using its contigs

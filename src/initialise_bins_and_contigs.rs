@@ -44,9 +44,9 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(output_director
         euk_bin_getter.add_euk_info_to_contigs_using_compleasm(&contig_file_path, &mut all_contigs, output_directory, threads);
         bin_generator.euk_bin_quality_getter = Some(euk_bin_getter);
         info!("Eukaryote analysis of contigs finished!");
-        for contig in &mut all_contigs {
-            contig.add_kmers(4);
-        }
+    //    for contig in &mut all_contigs {
+     //       contig.add_kmers(4);
+    //    }
     }
     
     

@@ -116,10 +116,11 @@ impl ClusteringPrep {
     fn get_euk_bin_pairs_with_less_than_max_euclidean_distance<'a>(bins: &'a [Bin], kmer_size: usize, max_euclidean_distance: f64) -> Vec<(&'a Bin, &'a Bin)>{
         let mut all_potential_bin_pairs: Vec<(&Bin, &Bin)> = bins.into_iter()
             .combinations(2).map(|bin_combo| (bin_combo[0], bin_combo[1])).collect();
-
+        let all_unique_contigs = bins.iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect_vec();
+        let contig_kmer_dict = Arc::new(ClusteringPrep::create_contig_kmer_dict_from_bins(kmer_size, all_unique_contigs));
         let all_euclidean_pairing_result_sorted: Vec<((&&Bin, &&Bin), f64)> = all_potential_bin_pairs
             .par_iter()
-            .map(|(bin_1, bin_2)| ((bin_1, bin_2), ClusteringPrep::calculate_euclidean_distance_between_bin_pair(bin_1, bin_2, kmer_size)))
+            .map(|(bin_1, bin_2)| ((bin_1, bin_2), ClusteringPrep::calculate_euclidean_distance_between_bin_pair(bin_1, bin_2, Arc::clone(&contig_kmer_dict))))
             .collect::<Vec<_>>() // Collect into a vector first
             .into_iter()
             .sorted_by(|a, b| a.1.partial_cmp(&b.1).unwrap()) // Sort the vector by the second item of the tuple
@@ -130,6 +131,7 @@ impl ClusteringPrep {
         let mut viable_bin_pairs = Vec::new();
         for (bin_pair, euclid_dist) in all_euclidean_pairing_result_sorted {
             let min_max_normalised_distance = (euclid_dist - min_dist) / (max_dist - min_dist);
+            debug!("normalised euclidean distance equals: {}", min_max_normalised_distance);
             if min_max_normalised_distance < max_euclidean_distance {
                 viable_bin_pairs.push((*bin_pair.0, *bin_pair.1));
             }
@@ -138,11 +140,20 @@ impl ClusteringPrep {
 
     }
 
-    fn calculate_euclidean_distance_between_bin_pair(bin_1: &Bin, bin_2: &Bin, kmer_size: usize) -> f64 {
+    fn create_contig_kmer_dict_from_bins(kmer_size: usize, contigs: Vec<Arc<Contig>>) -> HashMap<Arc<Contig>, Vec<String>> {
+        let mut contig_kmer_dict = HashMap::new();
+        for contig in contigs {
+            let kmers = contig.get_kmers(kmer_size);
+            contig_kmer_dict.insert(contig, kmers);
+        }
+        contig_kmer_dict
+    }
+
+    fn calculate_euclidean_distance_between_bin_pair(bin_1: &Bin, bin_2: &Bin, contig_kmer_dict: Arc<HashMap<Arc<Contig>, Vec<String>>>) -> f64 {
         // uses tetranucleotide frequency ratio (as a means to normalise contig sizes)
         debug!("Calculating euclidean distance for bin pair!");
-        let bin_1_kmers = bin_1.get_all_bin_kmers(kmer_size);
-        let bin_2_kmers = bin_2.get_all_bin_kmers(kmer_size);
+        let bin_1_kmers = bin_1.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_dict);
+        let bin_2_kmers = bin_2.get_bin_kmers_from_contig_kmer_hashmap(&contig_kmer_dict);
         let all_unique_kmers = bin_1_kmers.iter().chain(bin_2_kmers.iter()).unique().collect_vec();
         let mut sum_of_squared_differences = 0.0;
         for unique_kmer in all_unique_kmers {
