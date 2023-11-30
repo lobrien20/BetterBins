@@ -277,6 +277,7 @@ impl NewBinFinder {
         let current_bins: Vec<&Bin> = current_bin_nodes.iter().map(|node| bin_distance_graph.node_bin_dict.get(&node).unwrap()).collect();
         
         for neighbor_node in neighbor_nodes {
+            debug!("Checking node!");
 
             let hypothetical_bin = bin_distance_graph.node_bin_dict.get(&neighbor_node).unwrap();
             let mut bin_test = current_bins.clone();
