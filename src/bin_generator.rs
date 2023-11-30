@@ -141,7 +141,7 @@ impl BinGenerator for BinGen {
             None => { if self.bin_info_storage.read().unwrap().check_if_failed_bin(&bin_hash_string) {
                 return None
             } else {
-                ()
+                debug!("Potential new bin!");
             }
 
             }

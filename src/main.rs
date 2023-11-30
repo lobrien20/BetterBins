@@ -92,7 +92,7 @@ fn main() {
     let best_bins = run_classic_best_bin(bin_arc_contigs.unwrap(), Box::new(bin_generator), bin_scorer).into_iter().map(|bin| Arc::new(bin)).collect_vec();
     let best_bin_set = BinSet::make_bin_set_from_bins_vec(best_bins);
     let best_bins_directory = &args.results_directory.join("best_bins_directory");
-    if args.dry_run == false {
+    if args.dry_run {
         best_bin_set.create_bin_set_dir_and_info_from_best_hashes(&hash_directory, best_bins_directory, false);
 
     } else {
