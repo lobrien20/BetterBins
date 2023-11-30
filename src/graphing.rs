@@ -287,6 +287,10 @@ impl NewBinFinder {
             let hypothetical_bin_contigs: HashSet<Arc<Contig>> = hypothetical_bin.bin_contigs.clone().into_iter().collect();
             
             let union_contigs: Vec<Arc<Contig>> = current_bin_contigs.union(&hypothetical_bin_contigs).cloned().collect();
+            if union_contigs.len() == current_bin_contigs.len() {
+                debug!("No new contigs for bin neighbor combination!");
+                return
+            }
             let intersection_contigs: Vec<Arc<Contig>> = current_bin_contigs.intersection(&hypothetical_bin_contigs).cloned().collect();
 
 
@@ -296,10 +300,11 @@ impl NewBinFinder {
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
                         successful_bins.push(intersection_contigs);
+                        debug!("Bin success!");
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
                     } 
                 },
-                None => ()
+                None => debug!("Bin failed!")
             }
 
         
@@ -312,10 +317,11 @@ impl NewBinFinder {
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
                         successful_bins.push(union_contigs);
+                        debug!("Bin success!");
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
                     } 
                 },
-                None => ()
+                None => debug!("Bin failed!")
             }
 
         }
