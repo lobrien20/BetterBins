@@ -285,15 +285,15 @@ impl NewBinFinder {
 
             let current_bin_contigs: HashSet<Arc<Contig>> = current_bins.clone().into_iter().map(|bin| bin.bin_contigs.clone()).flatten().unique().collect();
             let hypothetical_bin_contigs: HashSet<Arc<Contig>> = hypothetical_bin.bin_contigs.clone().into_iter().collect();
-            
+            debug!("{} current bin contigs, {} hypothetical bin contigs!", current_bin_contigs.len(), hypothetical_bin_contigs.len());
             let union_contigs: Vec<Arc<Contig>> = current_bin_contigs.union(&hypothetical_bin_contigs).cloned().collect();
             if union_contigs.len() == current_bin_contigs.len() {
                 debug!("No new contigs for bin neighbor combination!");
                 return
             }
             let intersection_contigs: Vec<Arc<Contig>> = current_bin_contigs.intersection(&hypothetical_bin_contigs).cloned().collect();
-
-
+            debug!("{} union contigs, {} intersection contigs", union_contigs.len(), intersection_contigs.len());
+            debug!("Union test...");
             match bin_generator.generate_new_bin_from_contigs(intersection_contigs.clone()) {
                 Some(bin_res) => {
                     if self.check_if_improvement_conditions_met(&current_bin_quality, &(bin_res.completeness, bin_res.contamination)) {
@@ -309,7 +309,7 @@ impl NewBinFinder {
 
         
             
-
+            debug!("Intersection test...");
             match bin_generator.generate_new_bin_from_contigs(union_contigs.clone()) {
                 Some(bin_res) => {
                     if self.check_if_improvement_conditions_met(&current_bin_quality, &(bin_res.completeness, bin_res.contamination)) {
@@ -331,7 +331,7 @@ impl NewBinFinder {
         
         let change_in_completeness = new_potential_bin_quality.0 - current_bin_quality.0;
         let change_in_contamination = new_potential_bin_quality.1 - current_bin_quality.1;
-        change_in_completeness >= change_in_contamination
+        change_in_completeness > change_in_contamination
 
         
     }

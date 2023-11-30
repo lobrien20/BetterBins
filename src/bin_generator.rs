@@ -44,7 +44,8 @@ impl BinGen {
             Err(_) => { info!("Bin already made!");
                 match self.wait_for_other_thread_to_complete_bin2(&bin_hash_string) {
                 Some(bin) => return Some(bin),
-                None => return None }
+                None => return None 
+                }
             }
 
         }
@@ -91,6 +92,7 @@ impl BinGen {
 
     fn wait_for_other_thread_to_complete_bin2(&self, bin_hash_string: &str) -> Option<Bin> {
         let mut time_out = 0;
+        debug!("Waiting for bin to complete...");
         loop {
             time_out += 1;
             if time_out == 1000 {
@@ -132,6 +134,7 @@ pub trait BinGenerator : Send + Sync {
 
 impl BinGenerator for BinGen {
     fn generate_new_bin_from_contigs(&self, contigs: Vec<Arc<Contig>>) -> Option<Bin> {
+        debug!("TESTING BIN!");
         let bin_hash_string = generate_hash_from_contigs(&contigs);
         match self.bin_info_storage.read().unwrap().check_for_bin_via_hash(&bin_hash_string) {
             Some(bin) => return Some(bin),
