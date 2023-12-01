@@ -11,14 +11,16 @@ use crate::{contigs::Contig, bin_sets::BinSet};
 pub struct BinInfoStorage {
 
     hash_id_to_bin_hashmap: HashMap<String, Bin>,
-    failed_hash_ids: HashSet<String>
+    failed_hash_ids: HashSet<String>,
+    in_use_hashes: HashSet<String>
 }
 
 impl BinInfoStorage {
     pub fn initialise_bin_info_storer() -> BinInfoStorage {
         let mut bin_info_storer = BinInfoStorage {
             hash_id_to_bin_hashmap: HashMap::new(),
-            failed_hash_ids: HashSet::new()
+            failed_hash_ids: HashSet::new(),
+            in_use_hashes: HashSet::new()
         };
         bin_info_storer
     }
@@ -35,6 +37,27 @@ impl BinInfoStorage {
         
     }
 
+    pub fn check_hypothetical_bin_status(&self, bin_hash_string: &str) -> BinGenerationState {
+        // checks if the bin has been created and was a 'good' bin, if it's currently being used, if its failed, or if it needs to be created
+        if self.in_use_hashes.contains(bin_hash_string) {
+            return BinGenerationState::InUse
+        }
+        
+        if self.check_if_failed_bin(bin_hash_string) {
+            return BinGenerationState::Failed
+        }
+        
+        if let Some(bin) = self.check_for_bin_via_hash(bin_hash_string) {
+            return BinGenerationState::Succeeded(bin)
+        
+        } else {
+            
+            return BinGenerationState::CreateBin
+        
+        }
+
+    }
+
 
     pub fn add_bin_to_hashmap(&mut self, bin: Bin) {
     
@@ -48,6 +71,21 @@ impl BinInfoStorage {
 
     }
 
+    pub fn check_if_hash_in_use(&self, bin_hash_string: &str) -> bool {
+        
+        self.in_use_hashes.contains(bin_hash_string) 
+
+    }
+
+    pub fn put_hash_in_use(&mut self, bin_hash_string: &str) {
+        self.in_use_hashes.insert(bin_hash_string.to_string());
+
+    }
+    pub fn take_hash_out_of_use(&mut self, bin_hash_string: &str) {
+        self.in_use_hashes.remove(bin_hash_string);
+    }
+
+
 
     pub fn add_failed_bin_hash_to_hashset(&mut self, bin_hash_string: String) {
     
@@ -56,6 +94,13 @@ impl BinInfoStorage {
     }
 
 
+}
+
+pub enum BinGenerationState {
+    InUse,
+    Failed,
+    Succeeded(Bin),
+    CreateBin
 }
 #[derive(Debug, PartialEq, Clone, Hash)]
 pub enum BinType {

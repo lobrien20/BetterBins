@@ -156,7 +156,6 @@ impl EukaryoticBinQualityGetter {
         let perc_contamination = (number_of_duplicate_ids as f64 / self.number_of_marker_ids as f64) * 100.0;
         let perc_cont_2_dps = (perc_contamination * 100.0).round() / 100.0;
         let perc_comp_2_dps = (perc_completeness * 100.0).round() / 100.0;
-        
         self.write_brief_bin_qual_file(quick_summary_file_path, (perc_comp_2_dps, perc_cont_2_dps));
         
         if perc_completeness > 0.0 {
@@ -169,6 +168,9 @@ impl EukaryoticBinQualityGetter {
      
         }
     }
+
+    
+
     
     fn write_brief_bin_qual_file(&self, output_file_path: &PathBuf, perc_comp_and_cont: (f64, f64)) {
 
