@@ -37,7 +37,7 @@ impl BinInfoStorage {
         
     }
 
-    pub fn check_hypothetical_bin_status(&self, bin_hash_string: &str) -> BinGenerationState {
+    pub fn check_hypothetical_bin_status(&mut self, bin_hash_string: &str) -> BinGenerationState {
         // checks if the bin has been created and was a 'good' bin, if it's currently being used, if its failed, or if it needs to be created
         if self.in_use_hashes.contains(bin_hash_string) {
             return BinGenerationState::InUse
@@ -51,7 +51,7 @@ impl BinInfoStorage {
             return BinGenerationState::Succeeded(bin)
         
         } else {
-            
+            self.put_hash_in_use(&bin_hash_string);
             return BinGenerationState::CreateBin
         
         }
@@ -84,7 +84,17 @@ impl BinInfoStorage {
     pub fn take_hash_out_of_use(&mut self, bin_hash_string: &str) {
         self.in_use_hashes.remove(bin_hash_string);
     }
-
+    pub fn update_storage_based_on_bin_result(&mut self, bin_result: Option<Bin>, bin_hash_string: String) {
+        
+        match bin_result {
+        
+            Some(bin) => self.add_bin_to_hashmap(bin),
+            None => self.add_failed_bin_hash_to_hashset(bin_hash_string.clone())
+        
+        }
+        
+        self.take_hash_out_of_use(&bin_hash_string);
+    }
 
 
     pub fn add_failed_bin_hash_to_hashset(&mut self, bin_hash_string: String) {

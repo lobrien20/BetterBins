@@ -42,6 +42,7 @@ impl BinGen {
             fs::create_dir(&bin_hash_dir_path).unwrap();
             create_bin_fasta(&contigs, fasta_path);
             let mut bin_quality = None;
+            
             match bin_type {
         
                 BinType::eukaryote => bin_quality = self.euk_bin_quality_getter.as_ref().unwrap().analyse_bin(&contigs, bin_hash_dir_path),
@@ -52,16 +53,16 @@ impl BinGen {
         
 
             match bin_quality {
-                Some(bin_quality) => Some(self.construct_bin_object_from_info(contigs.clone(), bin_hash_string.to_string(), bin_type.clone(), (bin_quality.0, bin_quality.1))),
-                None => {
-                    self.add_failed_bin_to_storage(bin_hash_string);
-                    None
-                }
+               
+                Some(bin_quality) => Some(self.construct_bin_object_from_info(contigs.clone(), bin_hash_string.to_string(), bin_type.clone(), (bin_quality.0, bin_quality.1))),      
+                None => None
+
             }
 
 
         }
         else {
+
             None
         }
 
@@ -84,7 +85,6 @@ impl BinGen {
             bin_type: bin_type,
             bin_hash: bin_hash_string
         };
-        self.add_new_bin_info_to_storage(the_bin.clone());
         debug!("Bin comp is {}, Bin cont is {}", the_bin.completeness, the_bin.contamination);
 
         the_bin
@@ -93,7 +93,7 @@ impl BinGen {
 
 
 
-    fn wait_for_other_thread_to_complete_bin2(&self, bin_hash_string: &str) -> Option<Bin> {
+    fn wait_for_other_thread_to_complete_bin(&self, bin_hash_string: &str) -> Option<Bin> {
         let mut time_out = 0;
         debug!("Waiting for bin to complete...");
         loop {
@@ -113,21 +113,6 @@ impl BinGen {
         }
     }
 
-    fn add_new_bin_info_to_storage(&self, bin: Bin) {
-        let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
-        unlocked_bin_info.add_bin_to_hashmap(bin);
-    }
-    fn add_failed_bin_to_storage(&self, bin_hash_string: &str) {
-        let mut unlocked_bin_info = self.bin_info_storage.write().unwrap();
-        unlocked_bin_info.add_failed_bin_hash_to_hashset(bin_hash_string.to_string());
-        
-        if self.dry_run {
-
-            fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &bin_hash_string)));
-
-        }
-
-    }
 
 }
 
@@ -140,26 +125,42 @@ impl BinGenerator for BinGen {
     fn generate_new_bin_from_contigs(&self, contigs: Vec<Arc<Contig>>) -> Option<Bin> {
         debug!("TESTING BIN!");
         let bin_hash_string = generate_hash_from_contigs(&contigs);
-        match self.bin_info_storage.read().unwrap().check_hypothetical_bin_status(&bin_hash_string) {
+        match self.bin_info_storage.write().unwrap().check_hypothetical_bin_status(&bin_hash_string) {
             BinGenerationState::InUse => {
-            match self.wait_for_other_thread_to_complete_bin2(&bin_hash_string) {
-                Some(bin) => return Some(bin),
-                None => return None,
-            }}
+        
+                match self.wait_for_other_thread_to_complete_bin(&bin_hash_string) {
+            
+                    Some(bin) => return Some(bin),
+                    None => return None,
+            
+                }}
+        
             BinGenerationState::Failed => return None,
             BinGenerationState::Succeeded(bin) => return Some(bin),
-            BinGenerationState::CreateBin => self.bin_info_storage.write().unwrap().put_hash_in_use(&bin_hash_string)
+            BinGenerationState::CreateBin => ()
+        
+        }
+        debug!("New bin found!");
+
+        let mut bin_result = None;
+        match self.create_relevant_bin_files_and_analyse_bin(contigs, &bin_hash_string) {
+            Some(bin) => bin_result = Some(bin),
+            None => ()
         }
         
-        println!("Predicting bin type!");
-        match self.create_relevant_bin_files_and_analyse_bin(contigs, &bin_hash_string) {
-            Some(bin) => return Some(bin),
-            None => return None
+        if self.dry_run {
+
+            fs::remove_dir_all(&self.hash_directory.join(&format!("{}", &bin_hash_string)));
+
         }
+        
+        self.bin_info_storage.write().unwrap().update_storage_based_on_bin_result(bin_result.clone(), bin_hash_string);
+        
+
+
+        bin_result
+
     }
-
-
-
 
 }
 
