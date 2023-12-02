@@ -294,12 +294,12 @@ impl NewBinFinder {
             let intersection_contigs: Vec<Arc<Contig>> = current_bin_contigs.intersection(&hypothetical_bin_contigs).cloned().collect();
             debug!("{} union contigs, {} intersection contigs", union_contigs.len(), intersection_contigs.len());
             debug!("Union test...");
-            match bin_generator.generate_new_bin_from_contigs(intersection_contigs.clone()) {
+            match bin_generator.generate_new_bin_from_contigs(union_contigs.clone()) {
                 Some(bin_res) => {
                     if self.check_if_improvement_conditions_met(&current_bin_quality, &(bin_res.completeness, bin_res.contamination)) {
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
-                        successful_bins.push(intersection_contigs);
+                        successful_bins.push(union_contigs);
                         debug!("Bin success!");
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
                     } 
@@ -307,16 +307,18 @@ impl NewBinFinder {
                 None => debug!("Bin failed!")
             }
 
-        
-            
+            if intersection_contigs.len() == 0 {
+                return
+            }
+
             debug!("Intersection test...");
-            match bin_generator.generate_new_bin_from_contigs(union_contigs.clone()) {
+            match bin_generator.generate_new_bin_from_contigs(intersection_contigs.clone()) {
                 Some(bin_res) => {
                     if self.check_if_improvement_conditions_met(&current_bin_quality, &(bin_res.completeness, bin_res.contamination)) {
 
                         let mut current_bin_nodes_plus_successful_neighbor = current_bin_nodes.clone();
                         current_bin_nodes_plus_successful_neighbor.push(&neighbor_node);
-                        successful_bins.push(union_contigs);
+                        successful_bins.push(intersection_contigs);
                         debug!("Bin success!");
                         self.test_node_potential_bins(bin_distance_graph, current_bin_nodes_plus_successful_neighbor,  &bin_generator, (bin_res.completeness, bin_res.contamination), successful_bins);
                     } 
