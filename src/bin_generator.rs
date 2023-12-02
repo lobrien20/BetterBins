@@ -123,7 +123,7 @@ pub trait BinGenerator : Send + Sync {
 
 impl BinGenerator for BinGen {
     fn generate_new_bin_from_contigs(&self, contigs: Vec<Arc<Contig>>) -> Option<Bin> {
-        debug!("TESTING BIN!");
+        debug!("TESTING BIN OF {} CONTIGS!", contigs.len());
         let bin_hash_string = generate_hash_from_contigs(&contigs);
         match self.bin_info_storage.write().unwrap().check_hypothetical_bin_status(&bin_hash_string) {
             BinGenerationState::InUse => {
