@@ -127,7 +127,9 @@ impl BinGenerator for BinGen {
     fn generate_new_bin_from_contigs(&self, contigs: Vec<Arc<Contig>>) -> Option<Bin> {
         debug!("TESTING BIN OF {} CONTIGS!", contigs.len());
         let bin_hash_string = generate_hash_from_contigs(&contigs);
-        match self.bin_info_storage.write().unwrap().check_hypothetical_bin_status(&bin_hash_string) {
+        let bin_gen_state = self.bin_info_storage.write().unwrap().check_hypothetical_bin_status(&bin_hash_string);
+
+        match bin_gen_state {
             BinGenerationState::InUse => {
         
                 match self.wait_for_other_thread_to_complete_bin(&bin_hash_string) {
