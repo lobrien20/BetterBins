@@ -98,17 +98,20 @@ impl BinGen {
         debug!("Waiting for bin to complete...");
         loop {
             time_out += 1;
-            if time_out == 1000 {
+            debug!("waiting for {} seconds...", time_out);
+            if time_out == 10000 {
+                debug!("Waiting for other thread to complete bin time out at {} seconds", time_out);
                 panic!("Bin generator waiting for other thread - timeout!");
             }
             if let Some(bin) = self.bin_info_storage.read().unwrap().check_for_bin_via_hash(bin_hash_string) {
-                debug!("Waiting for bin to complete finished!");
+                debug!("Waiting for bin to complete finished - successful bin found!");
                 return Some(bin);
             }
             if self.bin_info_storage.read().unwrap().check_if_failed_bin(bin_hash_string) {
+                debug!("Waiting for bin to complete finished - failed bin found!");
                 return None;
             }
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(1000));
         }
     }
 
