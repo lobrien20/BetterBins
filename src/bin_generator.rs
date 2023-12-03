@@ -99,16 +99,15 @@ impl BinGen {
         loop {
             time_out += 1;
             if time_out == 1000 {
-                panic!("Bin generator waiting for other thread timeout");
+                panic!("Bin generator waiting for other thread - timeout!");
             }
-            let read_guard = self.bin_info_storage.read().unwrap();
-            if let Some(bin) = read_guard.check_for_bin_via_hash(bin_hash_string) {
+            if let Some(bin) = self.bin_info_storage.read().unwrap().check_for_bin_via_hash(bin_hash_string) {
+                debug!("Waiting for bin to complete finished!");
                 return Some(bin);
             }
-            if read_guard.check_if_failed_bin(bin_hash_string) {
+            if self.bin_info_storage.read().unwrap().check_if_failed_bin(bin_hash_string) {
                 return None;
             }
-            drop(read_guard); // Explicitly drop the read guard if you want to release the lock here
             thread::sleep(Duration::from_millis(100));
         }
     }
