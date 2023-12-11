@@ -140,10 +140,10 @@ struct Cli {
     #[arg(short, long, default_value = "eukrep-majority")]
     prediction_approach: BinTypePredictionApproach,
 
-    #[arg(long)]
+    #[arg(long, default_value = "")]
     compleasm_db_path: String,
 
-    #[arg(long)]
+    #[arg(long, default_value = "")]
     checkm2_db_path: String,
 
     #[arg(short, long, default_value = "0.5")]
