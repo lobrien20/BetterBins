@@ -88,6 +88,8 @@ pub fn generate_all_contigs_from_contig_file(contig_file: &PathBuf) -> Vec<Conti
 pub fn generate_all_contigs_from_fasta_files(fasta_file_paths: &Vec<PathBuf>) -> Vec<Contig> {
     // gets all unique contigs from bin fasta files 
     let mut all_used_contigs = Vec::new();
+    let mut all_used_contig_headers = HashSet::new();
+
     for fasta_file_path in fasta_file_paths {  // loops over fasta file path
         let fasta_info = get_fasta_info_from_file(&fasta_file_path);
         
@@ -95,10 +97,15 @@ pub fn generate_all_contigs_from_fasta_files(fasta_file_paths: &Vec<PathBuf>) ->
         
             let contig_fasta_lines: Vec<&str> = header_and_seq.lines().collect();
             let contig_header = contig_fasta_lines[0].trim().to_string();
-            let contig_fasta_sequence: String = contig_fasta_lines.into_iter().skip(1).collect::<Vec<_>>().join("");
-            let contig = Contig::new_contig(contig_header, contig_fasta_sequence);
-            if !all_used_contigs.contains(&contig) {
+
+            if !all_used_contig_headers.contains(&contig_header) {
+                let contig_fasta_sequence: String = contig_fasta_lines.into_iter().skip(1).collect::<Vec<_>>().join("");
+
+                let contig = Contig::new_contig(contig_header.clone(), contig_fasta_sequence);
+
                 all_used_contigs.push(contig);
+                all_used_contig_headers.insert(contig_header);
+
             }
         }
     }
