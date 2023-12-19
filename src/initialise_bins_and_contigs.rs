@@ -20,7 +20,7 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(output_director
     let mut all_contigs: Vec<Contig> = generate_all_contigs_from_fasta_files(&fasta_file_paths);
     let contig_file_path = output_directory.join("all_used_contigs.fa");
     let arc_contigs_for_create_fasta: Vec<Arc<Contig>> = all_contigs.clone().into_iter().map(|contig| Arc::new(contig)).collect();
-    create_bin_fasta(&arc_contigs_for_create_fasta, &contig_file_path);
+    create_bin_fasta(&arc_contigs_for_create_fasta, &contig_file_path); // Creates unique contigs file from bin fastas. Avoid unnecessary giving of contigs file as an argument, since some contigs won't be necessary anyway
 
     if required_contig_information_processing.contains(&"contig_type_checking".to_string()) {
         info!("Running contig type checking");
@@ -58,82 +58,15 @@ pub fn initialise_tool_through_getting_original_bins_and_contigs(output_director
     info!("Initialisation of bins and contigs complete!");
     (bin_generator, the_bins)
 }
-/*  
-pub fn initialise_bins_and_contigs(contig_file: &PathBuf, output_directory: &PathBuf, prokaryote_db_path: String, 
-    threads: usize, bin_directory_path: &PathBuf, hash_directory_path: &PathBuf, bin_generator: Arc<BinGen>, hash_directory_path: &PathBuf, 
-    maximum_contamination: f64, minimum_completene) -> (Vec<Bin>) {
-
-    let fasta_files = find_bin_fastas(&bin_directory_path);
-    
-
-  //  let all_contigs = gather_contigs_and_add_info(&contig_file, &output_directory.join("contig_outputs/"), &prok_bin_getter, &euk_bin_getter, threads, &bin_type_predictor, fasta_files.clone());
-    let required_contig_information_processing = bin_generator.bin_type_predictor.required_contig_information();
-    let mut all_contigs = Vec::new();
-    if required_contig_information_processing.contains(&"contig_type_checking".to_string()) {
-        info!("Running contig type checking");
-        ContigTypePredictor::predict_contig_types(&contig_file, &mut all_contigs, output_directory).unwrap();
-        info!("Contig type checking finished!");
-    }
-    if required_contig_information_processing.contains(&"prokaryote".to_string()) {
-        info!("Running prokaryote analysis of contigs");
-        &bin_generator.prok_bin_quality_getter.unwrap().add_prok_info_to_contigs_using_checkm2(&contig_file, output_directory, &mut all_contigs, threads);
-        info!("Prokaryote analysis of contigs finished!");
-    
-    }
-    if required_contig_information_processing.contains(&"eukaryote".to_string()) {
-        info!("Running eukaryote analysis of contigs");
-        bin_generator.euk_bin_quality_getter.unwrap().add_euk_info_to_contigs_using_compleasm(&contig_file, &mut all_contigs, output_directory, threads);
-        info!("Eukaryote analysis of contigs finished!");
-    
-    }
-    let all_arc_contigs: Vec<Arc<Contig>> = all_contigs.into_iter().map(|contig| Arc::new(contig)).collect();
-
-    let path_to_bin_hashmap = analyse_initial_bin_fastas_and_generate_path_to_bin_dict(fasta_files, all_arc_contigs, &bin_generator);
-    create_summary_file_of_initial_bin_fastas(&path_to_bin_hashmap, output_directory, &bin_directory_path);
-    let the_bins = path_to_bin_hashmap.into_values().filter_map(|bin| bin).collect_vec();
-    info!("Initialisation of bins and contigs complete!");
-    (the_bins)
-}
-
-*/
 
 
-pub fn gather_contigs_and_add_info(contig_file: &PathBuf, output_directory: &PathBuf, 
-    prok_bin_getter: &ProkaryoticBinQualityGetter, euk_bin_getter: &EukaryoticBinQualityGetter, threads: usize, required_contig_information_processing: &Vec<String>, fasta_file_paths: Vec<PathBuf>) -> Vec<Arc<Contig>> {
-    
-    fs::create_dir(output_directory);
-        
-    let mut all_contigs: Vec<Contig> = generate_all_contigs_from_fasta_files(&fasta_file_paths);
-    let contig_file_path = output_directory.join("all_used_contigs.fa");
-    let arc_contigs_for_create_fasta: Vec<Arc<Contig>> = all_contigs.clone().into_iter().map(|contig| Arc::new(contig)).collect();
-    create_bin_fasta(&arc_contigs_for_create_fasta, &contig_file_path);
 
 
-    if required_contig_information_processing.contains(&"contig_type_checking".to_string()) {
-        info!("Running contig type checking");
-        ContigTypePredictor::predict_contig_types(&contig_file, &mut all_contigs, output_directory).unwrap();
-        info!("Contig type checking finished!");
-    }
-    if required_contig_information_processing.contains(&"prokaryote".to_string()) {
-        info!("Running prokaryote analysis of contigs");
-        prok_bin_getter.add_prok_info_to_contigs_using_checkm2(&contig_file, output_directory, &mut all_contigs, threads);
-        info!("Prokaryote analysis of contigs finished!");
-    
-    }
-    if required_contig_information_processing.contains(&"eukaryote".to_string()) {
-        info!("Running eukaryote analysis of contigs");
-        euk_bin_getter.add_euk_info_to_contigs_using_compleasm(&contig_file, &mut all_contigs, output_directory, threads);
-        info!("Eukaryote analysis of contigs finished!");
-    
-    }
-    let all_arc_contigs: Vec<Arc<Contig>> = all_contigs.into_iter().map(|contig| Arc::new(contig)).collect();
-    all_arc_contigs
-}
 
 
 
 pub fn generate_all_contigs_from_contig_file(contig_file: &PathBuf) -> Vec<Contig> {   
-      
+    // function which would generate all contigs from a contig file , only used in testing (may be used in future)
     let fasta_info = get_fasta_info_from_file(&contig_file);
     let mut bin_contigs = Vec::new();
     
@@ -153,9 +86,9 @@ pub fn generate_all_contigs_from_contig_file(contig_file: &PathBuf) -> Vec<Conti
 }
 
 pub fn generate_all_contigs_from_fasta_files(fasta_file_paths: &Vec<PathBuf>) -> Vec<Contig> {
-    
+    // gets all unique contigs from bin fasta files 
     let mut all_used_contigs = Vec::new();
-    for fasta_file_path in fasta_file_paths {
+    for fasta_file_path in fasta_file_paths {  // loops over fasta file path
         let fasta_info = get_fasta_info_from_file(&fasta_file_path);
         
         for header_and_seq in fasta_info {
@@ -178,7 +111,7 @@ fn get_fasta_info_from_file(fasta_file_path: &PathBuf) -> Vec<String> {
     let mut fasta_file = File::open(&fasta_file_path).expect(&format!("Could not open fasta file for bin at path: {}", &fasta_file_path.to_string_lossy()));
     let mut fasta_lines = String::new();
     fasta_file.read_to_string(&mut fasta_lines).expect(&format!("Could not read fasta file to string"));
-    let mut fasta_vec: Vec<String> = fasta_lines.split(">").map(|x| x.to_string()).collect();
+    let fasta_vec: Vec<String> = fasta_lines.split(">").map(|x| x.to_string()).collect();
     let fasta_info: Vec<String> = fasta_vec.iter().skip(1).map(|x| format!(">{}", x)).collect();
     fasta_info
 

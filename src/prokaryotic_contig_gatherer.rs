@@ -1,7 +1,8 @@
 use std::{path::PathBuf, process::Command, fs::{self, File}, io::{Read, Write}, sync::Arc, hash};
 
 use log::{debug, info};
-
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator, IntoParallelIterator};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::{contigs::{Contig, ProkaryoticContigInformation}, utils::create_new_fasta_file};
 
 
@@ -112,25 +113,32 @@ impl ProkaryoticBinQualityGetter {
         }
     }
 
+
+
     fn add_prokaryotic_orf_info_to_contigs(all_contigs: &mut [Contig], diamond_and_protein_paths: (PathBuf, PathBuf) ) {
         
         let protein_info = ProkaryoticBinQualityGetter::get_protein_info_from_file(&diamond_and_protein_paths.1);
         let diamond_info = ProkaryoticBinQualityGetter::get_prokaryotic_diamond_info_from_file(&diamond_and_protein_paths.0);
-        let mut total_used_contigs_len = 0;
-        for contig in all_contigs {
+        let total_used_contigs_len = AtomicUsize::new(0);
 
+        info!("Adding diamond and protein information to contigs...");
+        all_contigs.into_par_iter().for_each(|contig| {
             let mut header_without_shark_symbol = contig.header.clone();
             header_without_shark_symbol.remove(0);
             let contig_protein_info: Vec<String> = protein_info.iter().filter(|x| x.contains(&contig.header)).map(|x| x.to_string()).collect();
-            total_used_contigs_len += contig_protein_info.len();
             let contig_diamond_info: Vec<String> = diamond_info.iter().filter(|x| x.contains(&header_without_shark_symbol)).map(|x| x.to_string()).collect();
             if contig_protein_info.len() != 0 || contig_diamond_info.len() != 0 {
                 contig.add_diamond_and_protein_information(contig_diamond_info, contig_protein_info);
+                total_used_contigs_len.fetch_add(1, Ordering::Relaxed); // Atomic addition of the count, using relaxed ordering since the order in which the 1 is added when if condition met does not matter 
             }
         }
-        info!("total used prokaryotic protein count in contigs is: {}", total_used_contigs_len);
+        );
+
+        info!("Diamond and protein information addition to contigs complete!\ntotal used prokaryotic protein count in contigs is: {}", total_used_contigs_len.load(Ordering::Relaxed));
 
     }
+
+
 
 
     fn get_protein_info_from_file( protein_file_path: &PathBuf) -> Vec<String> {

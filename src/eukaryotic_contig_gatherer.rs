@@ -2,6 +2,7 @@ use std::{path::PathBuf, fs::{File, self}, io::{Read, Write}, sync::Arc, process
 use glob::glob;
 use itertools::Itertools;
 use log::info;
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator, IntoParallelIterator};
 use crate::{contigs::{Contig, EukaryoticContigInformation}};
 
 
@@ -84,8 +85,7 @@ impl EukaryoticBinQualityGetter {
     }
 
     fn add_busco_info_to_contigs(contigs: &mut [Contig], contig_names_and_ids: Vec<(String, String)>) {
-
-        for contig in contigs {
+        contigs.into_par_iter().for_each(|contig| {
             let mut busco_ids_for_contig = Vec::new();
             for (name, id) in &contig_names_and_ids {
                 if contig.header.contains(name) {
@@ -95,8 +95,7 @@ impl EukaryoticBinQualityGetter {
             if busco_ids_for_contig.len() != 0 {
                 contig.add_eukaryotic_busco_info(busco_ids_for_contig);
             }
-    
-        }
+        })
     
     }
 
