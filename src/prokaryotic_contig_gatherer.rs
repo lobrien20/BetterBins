@@ -104,9 +104,7 @@ impl ProkaryoticBinQualityGetter {
         let contig_file_name = contig_path_str.split("/").last().unwrap();
         let split: Vec<&str> = contig_file_name.rsplitn(2, '.').collect();
         let contig_file_name_without_ext = split.last().unwrap_or(&"");
-        println!("contig file name is: {}", contig_file_name_without_ext);
         let expected_protein_info_path = PathBuf::from(&checkm2_contig_result_directory).join(&format!("protein_files/{}.faa", contig_file_name_without_ext));
-        println!("Expected diamond path path is: {}", &expected_diamond_info_path.to_str().unwrap());
         if expected_diamond_info_path.is_file() && expected_protein_info_path.is_file() {
             Some((expected_diamond_info_path, expected_protein_info_path))
         } else {
@@ -130,42 +128,43 @@ impl ProkaryoticBinQualityGetter {
                 contig.add_diamond_and_protein_information(contig_diamond_info, contig_protein_info);
             }
         }
-        println!("total used protein cont: {}", total_used_contigs_len);
+        info!("total used prokaryotic protein count in contigs is: {}", total_used_contigs_len);
 
     }
 
 
     fn get_protein_info_from_file( protein_file_path: &PathBuf) -> Vec<String> {
-    
+        debug!("Opening contig protein file to get prokaryotic protein info!");
         let mut protein_file = File::open(&protein_file_path).expect(&format!("Could not open protein file for bin at path: {}", &protein_file_path.to_string_lossy()));
         let mut protein_lines = String::new();
         protein_file.read_to_string(&mut protein_lines).expect("Could not read protein file to string");
-        let mut protein_vec: Vec<String> = protein_lines.split(">").map(|x| x.to_string()).collect();
-        println!("1 is: {}", protein_vec[0]);
-        println!("2 is: {}", protein_vec[1]);
-        println!("There are {}", protein_vec.len());
+        let protein_vec: Vec<String> = protein_lines.split(">").map(|x| x.to_string()).collect();
         
 
         let protein_info: Vec<String> = protein_vec.iter().skip(1).map(|x| format!(">{}", x)).collect();
-        println!("There are {}", protein_info.len());
+        debug!("Finished reading contig protein file to get prokaryotic protein info!");
+
         protein_info
     }
 
 
     fn get_prokaryotic_diamond_info_from_file(diamond_file_path: &PathBuf) -> Vec<String> {
-    
+        debug!("Opening contig diamond file to get prokaryotic info!");
         let mut diamond_file = File::open(&diamond_file_path).expect(&format!("Could not open diamond file for bin at path: {}", &diamond_file_path.to_string_lossy()));
         let mut diamond_lines = String::new();
         diamond_file.read_to_string(&mut diamond_lines).expect("Could not read diamond file to string");
         let diamond_info: Vec<String> = diamond_lines.lines()
         .map(|x| x.to_string().split("Ω").nth(1).unwrap().to_string())
         .collect();
+        debug!("Finished reading contig diamond file to get prokaryotic info!");
+
+
         diamond_info   
 
     }
 
     pub fn analyse_bin(&self, contigs: &[Arc<Contig>], fasta_path: &PathBuf, hash_directory_path: &PathBuf, bin_hash: &str) -> Option<(f64, f64)> {
-        println!("Analysing prokaryotic bin!");
+        debug!("Analysing prokaryotic bin!");
         let checkm2_analysis_result_directory = hash_directory_path.join("checkm2_results/");
         if checkm2_analysis_result_directory.is_dir() {
         
